@@ -7,8 +7,8 @@ A production-ready, anime-inspired video editor portfolio for **Crxsyruu**, them
 - **Frontend:** React 18 + Vite 5
 - **Routing:** React Router DOM v6
 - **Animations:** Framer Motion
-- **Database:** Firebase Realtime Database (with demo/offline mode)
-- **Media Storage:** Cloudinary (with demo/offline mode)
+- **Database:** Firebase Realtime Database (empty state when unconfigured)
+- **Media Storage:** Cloudinary — Ultra HD/4K support up to 4 GB
 - **Fonts:** Orbitron, Rajdhani, Inter (Google Fonts)
 - **Styling:** CSS Modules + CSS Variables
 
@@ -24,9 +24,9 @@ src/
 ├── lib/
 │   ├── firebase.js      # Firebase init (gracefully degrades to demo mode if unconfigured)
 │   ├── cloudinary.js    # Cloudinary upload + URL helpers (degrades to demo mode)
-│   └── demoData.js      # Sample edits and stats for demo/offline preview
+│   └── demoData.js      # CATEGORIES list only (demo edits/stats removed)
 ├── hooks/
-│   ├── useFirebaseData.js   # Firebase listeners (useEdits, useStats, incrementView, pushEdit, deleteEdit)
+│   ├── useFirebaseData.js   # Firebase listeners (useEdits, useStats, incrementView, pushEdit, deleteEdit, toggleFeatured, updateEdit)
 │   └── useDevicePerformance.js  # Low-end device detection (reduces animations)
 ├── components/
 │   ├── Navbar.jsx / .module.css        # Fixed navbar with active route highlighting
@@ -72,7 +72,25 @@ VITE_CLOUDINARY_UPLOAD_PRESET=
 VITE_ADMIN_PASSWORD=
 ```
 
-Without these, the app runs in **demo mode** — showing sample edits with no data persistence.
+Without these, the app shows **empty states** with configuration guidance — no placeholder/demo data is injected.
+
+## Audio System
+
+The navbar includes an ambient music toggle. Place your audio file at:
+`/public/audio/tempest-ambient.mp3`
+The player degrades silently if the file does not exist.
+
+## Key Features (v2)
+
+- **Mobile scroll:** `-webkit-overflow-scrolling: touch`, proper `overflow-y: auto` on html/body, 16px inputs to prevent iOS zoom
+- **Zero demo data:** Empty states shown when Firebase is unconfigured, no fake content injected
+- **Ultra HD uploads:** 4 GB client limit, Cloudinary handles 4K/UHD quality preservation
+- **Hover video preview:** GalleryCard plays `edit.videoUrl` muted on hover (desktop only)
+- **Featured glow:** `glow-pulse-featured` CSS animation on featured cards, pulsing border
+- **Ripple buttons:** Click ripple effect on all gallery cards
+- **Audio visualizer:** CSS-animated bars in navbar when audio is playing
+- **Admin enhanced:** Toggle featured status, edit title/description/tags via modal dialog
+- **Energy lines:** Animated CSS gradient lines on hero and CTA sections
 
 ## Sections (UI Identity)
 
@@ -82,7 +100,7 @@ Without these, the app runs in **demo mode** — showing sample edits with no da
 | Tempest Archive | `/gallery` | Browse all edits with filter/search/sort |
 | Tempest Upload | `/upload` | Drag-and-drop media upload to Cloudinary + Firebase |
 | Tempest Stats | `/stats` | Live analytics, ranked edits, category breakdown |
-| Admin | `/admin` | Password-gated panel to manage and delete edits |
+| Admin | `/admin` | Password-gated panel — delete edits, toggle featured, edit metadata |
 
 ## Dev Server
 

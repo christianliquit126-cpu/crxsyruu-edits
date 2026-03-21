@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useEdits, useStats } from '../hooks/useFirebaseData'
+import { isConfigured } from '../lib/firebase'
 import styles from './Stats.module.css'
 
 const formatViews = (n) => {
@@ -10,12 +11,29 @@ const formatViews = (n) => {
   return String(n)
 }
 
+const timeFromNow = (ts) => {
+  if (!ts) return ''
+  const diff = Date.now() - ts
+  const m = Math.floor(diff / 60000)
+  if (m < 1) return 'just now'
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  return `${Math.floor(h / 24)}d ago`
+}
+
 const AnimatedCounter = ({ target, duration = 1800 }) => {
   const [count, setCount] = useState(0)
   const ref = useRef(null)
   const started = useRef(false)
 
   useEffect(() => {
+    started.current = false
+    setCount(0)
+  }, [target])
+
+  useEffect(() => {
+    if (!target) return
     const obs = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting && !started.current) {
         started.current = true
@@ -37,16 +55,16 @@ const AnimatedCounter = ({ target, duration = 1800 }) => {
   return <span ref={ref}>{count.toLocaleString()}</span>
 }
 
-const GlowBar = ({ value, max, color = 'var(--glow-blue)' }) => {
-  const pct = max > 0 ? (value / max) * 100 : 0
+const GlowBar = ({ value, max, color = 'var(--glow-blue)', delay = 0 }) => {
+  const pct = max > 0 ? Math.max((value / max) * 100, 2) : 0
   return (
     <div className={styles.barTrack}>
       <motion.div
         className={styles.barFill}
-        style={{ background: color, boxShadow: `0 0 8px ${color}` }}
+        style={{ background: color, boxShadow: `0 0 8px ${color}40` }}
         initial={{ width: 0 }}
         animate={{ width: `${pct}%` }}
-        transition={{ duration: 1, ease: [0.4, 0, 0.2, 1], delay: 0.3 }}
+        transition={{ duration: 1, ease: [0.4, 0, 0.2, 1], delay }}
       />
     </div>
   )
@@ -60,7 +78,7 @@ export default function Stats() {
   const maxViews = sorted[0]?.views || 1
 
   const categoryCounts = edits.reduce((acc, e) => {
-    acc[e.category] = (acc[e.category] || 0) + 1
+    if (e.category) acc[e.category] = (acc[e.category] || 0) + 1
     return acc
   }, {})
 
@@ -69,33 +87,57 @@ export default function Stats() {
     .slice(0, 6)
 
   const maxCat = categoryEntries[0]?.[1] || 1
-
-  const totalViews = edits.reduce((sum, e) => sum + (e.views || 0), 0)
+  const totalViews = stats.totalViews || edits.reduce((sum, e) => sum + (e.views || 0), 0)
+  const totalEdits = stats.totalEdits || edits.length
+  const featuredCount = edits.filter(e => e.featured).length
+  const avgViews = totalEdits > 0 ? Math.round(totalViews / totalEdits) : 0
 
   const STAT_CARDS = [
-    { label: 'Total Views', value: stats.totalViews || totalViews, icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-        <circle cx="12" cy="12" r="3"/>
-      </svg>
-    )},
-    { label: 'Total Edits', value: stats.totalEdits || edits.length, icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-        <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
-      </svg>
-    )},
-    { label: 'Featured Works', value: edits.filter(e => e.featured).length, icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-        <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" opacity="0.8"/>
-      </svg>
-    )},
-    { label: 'Avg Views / Edit', value: edits.length > 0 ? Math.round(totalViews / edits.length) : 0, icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
-      </svg>
-    )},
+    {
+      label: 'Total Views',
+      value: totalViews,
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+      ),
+      color: 'var(--glow-blue)',
+    },
+    {
+      label: 'Total Edits',
+      value: totalEdits,
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+          <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+        </svg>
+      ),
+      color: 'var(--glow-cyan)',
+    },
+    {
+      label: 'Featured Works',
+      value: featuredCount,
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" opacity="0.85"/>
+        </svg>
+      ),
+      color: 'var(--glow-purple)',
+    },
+    {
+      label: 'Avg Views / Edit',
+      value: avgViews,
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
+        </svg>
+      ),
+      color: 'var(--glow-teal)',
+    },
   ]
+
+  const recentActivity = stats.recentActivity || []
 
   return (
     <div className={styles.page}>
@@ -103,11 +145,15 @@ export default function Stats() {
         <div className={styles.headerContent}>
           <span className="label-tag">Tempest Stats — 04</span>
           <h1 className={styles.title}>Analytics</h1>
-          <p className={styles.subtitle}>Live metrics from the Tempest Archive.</p>
-          <div className={styles.liveTag}>
-            <span className={styles.liveDot} />
-            <span>Live Data</span>
-          </div>
+          <p className={styles.subtitle}>
+            {isConfigured ? 'Live metrics from the Tempest Archive.' : 'Connect Firebase to see live analytics.'}
+          </p>
+          {isConfigured && (
+            <div className={styles.liveTag}>
+              <span className={styles.liveDot} />
+              <span>Live Data</span>
+            </div>
+          )}
         </div>
         <div className={styles.headerGlow} />
       </div>
@@ -118,107 +164,128 @@ export default function Stats() {
             <motion.div
               key={card.label}
               className={styles.statCard}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.08, duration: 0.4 }}
+              transition={{ delay: i * 0.08, duration: 0.45 }}
+              style={{ '--card-color': card.color }}
             >
-              <div className={styles.statCardIcon}>{card.icon}</div>
-              <div className={styles.statCardValue}>
+              <div className={styles.statCardIcon} style={{ color: card.color }}>{card.icon}</div>
+              <div className={styles.statCardValue} style={{ color: card.color }}>
                 <AnimatedCounter target={card.value} />
               </div>
               <div className={styles.statCardLabel}>{card.label}</div>
-              <div className={styles.statCardGlow} />
+              <div className={styles.statCardGlow} style={{ background: `radial-gradient(ellipse, ${card.color}12 0%, transparent 70%)` }} />
             </motion.div>
           ))}
         </div>
 
-        <div className={styles.twoCol}>
-          <motion.div
-            className={styles.panel}
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
-          >
-            <div className={styles.panelHeader}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
-              </svg>
-              Most Viewed Edits
-            </div>
-            <div className={styles.rankList}>
-              {sorted.slice(0, 6).map((edit, i) => (
-                <div key={edit.id} className={styles.rankItem}>
-                  <span className={`${styles.rankNum} ${i === 0 ? styles.gold : i === 1 ? styles.silver : i === 2 ? styles.bronze : ''}`}>
-                    {String(i + 1).padStart(2, '0')}
-                  </span>
-                  <div className={styles.rankInfo}>
-                    <span className={styles.rankTitle}>{edit.title}</span>
-                    <GlowBar value={edit.views || 0} max={maxViews} />
-                  </div>
-                  <span className={styles.rankViews}>{formatViews(edit.views || 0)}</span>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-
-          <div className={styles.rightCol}>
-            <motion.div
-              className={styles.panel}
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4, duration: 0.5 }}
-            >
-              <div className={styles.panelHeader}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-                  <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
-                </svg>
-                By Category
-              </div>
-              <div className={styles.catList}>
-                {categoryEntries.map(([cat, count]) => (
-                  <div key={cat} className={styles.catItem}>
-                    <div className={styles.catItemTop}>
-                      <span className={styles.catName}>{cat}</span>
-                      <span className={styles.catCount}>{count}</span>
-                    </div>
-                    <GlowBar value={count} max={maxCat} color="var(--glow-teal)" />
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-
-            <motion.div
-              className={styles.panel}
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5, duration: 0.5 }}
-            >
-              <div className={styles.panelHeader}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
-                </svg>
-                Recent Activity
-                <span className={styles.livePill}>
-                  <span className={styles.liveDotSm} /> Live
-                </span>
-              </div>
-              <div className={styles.activityList}>
-                {(stats.recentActivity || []).map((activity, i) => (
-                  <div key={i} className={styles.activityItem}>
-                    <div className={styles.activityDot} />
-                    <div className={styles.activityInfo}>
-                      <span className={styles.activityText}>
-                        {activity.action} <strong>{activity.target}</strong>
-                      </span>
-                      <span className={styles.activityTime}>{activity.time}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
+        {edits.length === 0 && (
+          <div className={styles.emptyNote}>
+            {isConfigured
+              ? 'No edits uploaded yet. Statistics will appear here once content is added.'
+              : 'Add Firebase credentials to enable live analytics tracking.'}
           </div>
-        </div>
+        )}
+
+        {edits.length > 0 && (
+          <div className={styles.twoCol}>
+            <motion.div
+              className={styles.panel}
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.5 }}
+            >
+              <div className={styles.panelHeader}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
+                </svg>
+                Most Viewed Edits
+              </div>
+              <div className={styles.rankList}>
+                {sorted.slice(0, 6).map((edit, i) => (
+                  <div key={edit.id} className={styles.rankItem}>
+                    <span className={`${styles.rankNum} ${i === 0 ? styles.gold : i === 1 ? styles.silver : i === 2 ? styles.bronze : ''}`}>
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    <div className={styles.rankInfo}>
+                      <span className={styles.rankTitle}>{edit.title}</span>
+                      <GlowBar value={edit.views || 0} max={maxViews} delay={0.4 + i * 0.05} />
+                    </div>
+                    <span className={styles.rankViews}>{formatViews(edit.views || 0)}</span>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+
+            <div className={styles.rightCol}>
+              {categoryEntries.length > 0 && (
+                <motion.div
+                  className={styles.panel}
+                  initial={{ opacity: 0, y: 24 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4, duration: 0.5 }}
+                >
+                  <div className={styles.panelHeader}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+                      <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+                    </svg>
+                    By Category
+                  </div>
+                  <div className={styles.catList}>
+                    {categoryEntries.map(([cat, count], i) => (
+                      <div key={cat} className={styles.catItem}>
+                        <div className={styles.catItemTop}>
+                          <span className={styles.catName}>{cat}</span>
+                          <span className={styles.catCount}>{count}</span>
+                        </div>
+                        <GlowBar value={count} max={maxCat} color="var(--glow-teal)" delay={0.5 + i * 0.06} />
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+
+              <motion.div
+                className={styles.panel}
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5, duration: 0.5 }}
+              >
+                <div className={styles.panelHeader}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
+                  </svg>
+                  Recent Activity
+                  {isConfigured && (
+                    <span className={styles.livePill}>
+                      <span className={styles.liveDotSm} /> Live
+                    </span>
+                  )}
+                </div>
+                <div className={styles.activityList}>
+                  {recentActivity.length > 0 ? (
+                    recentActivity.slice(0, 8).map((activity, i) => (
+                      <div key={i} className={styles.activityItem}>
+                        <div className={styles.activityDot} />
+                        <div className={styles.activityInfo}>
+                          <span className={styles.activityText}>
+                            {activity.action} <strong>{activity.target}</strong>
+                          </span>
+                          <span className={styles.activityTime}>
+                            {activity.ts ? timeFromNow(activity.ts) : activity.time}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className={styles.noActivity}>No recent activity yet</p>
+                  )}
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

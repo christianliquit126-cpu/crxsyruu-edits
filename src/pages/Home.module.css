@@ -1,11 +1,11 @@
 .page {
-  min-height: 100vh;
   position: relative;
   z-index: 1;
 }
 
 .hero {
   position: relative;
+  min-height: 100svh;
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -15,19 +15,19 @@
 
 .heroGlow {
   position: absolute;
-  top: 20%;
+  top: 15%;
   left: 50%;
   transform: translateX(-50%);
-  width: 600px;
-  height: 400px;
-  background: radial-gradient(ellipse, rgba(56, 189, 248, 0.12) 0%, transparent 65%);
+  width: 700px;
+  height: 500px;
+  background: radial-gradient(ellipse, rgba(56, 189, 248, 0.14) 0%, transparent 65%);
   pointer-events: none;
 }
 
 .heroContent {
   position: relative;
   z-index: 2;
-  max-width: 700px;
+  max-width: 720px;
   padding: 120px 24px 80px;
   text-align: center;
 }
@@ -37,22 +37,22 @@
   font-size: clamp(3rem, 8vw, 6rem);
   font-weight: 800;
   letter-spacing: 0.04em;
-  line-height: 1;
+  line-height: 1.05;
   color: var(--text-primary);
-  margin: 16px 0 12px;
+  margin: 18px 0 14px;
 }
 
 .heroTitleAccent {
   color: var(--glow-blue);
-  text-shadow: 0 0 40px rgba(56, 189, 248, 0.5), 0 0 80px rgba(56, 189, 248, 0.2);
+  text-shadow: 0 0 40px rgba(56, 189, 248, 0.55), 0 0 80px rgba(56, 189, 248, 0.25);
 }
 
 .heroSub {
   font-size: 1rem;
   color: var(--text-secondary);
-  line-height: 1.7;
-  margin-bottom: 36px;
-  max-width: 480px;
+  line-height: 1.75;
+  margin-bottom: 38px;
+  max-width: 500px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -70,15 +70,15 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 13px 28px;
+  padding: 13px 30px;
   background: rgba(56, 189, 248, 0.12);
-  border: 1px solid rgba(56, 189, 248, 0.4);
+  border: 1px solid rgba(56, 189, 248, 0.42);
   border-radius: var(--radius-md);
   color: var(--glow-blue);
   font-family: var(--font-display);
-  font-size: 0.85rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   text-decoration: none;
   transition: background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), color var(--transition-fast);
@@ -86,9 +86,9 @@
 }
 
 .ctaPrimary:hover {
-  background: rgba(56, 189, 248, 0.2);
-  border-color: rgba(56, 189, 248, 0.7);
-  box-shadow: 0 0 24px rgba(56, 189, 248, 0.22);
+  background: rgba(56, 189, 248, 0.22);
+  border-color: rgba(56, 189, 248, 0.75);
+  box-shadow: 0 0 28px rgba(56, 189, 248, 0.25), 0 0 60px rgba(56, 189, 248, 0.1);
   color: var(--glow-cyan);
 }
 
@@ -96,28 +96,29 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 13px 24px;
+  padding: 13px 26px;
   border: 1px solid var(--tempest-border);
   border-radius: var(--radius-md);
   color: var(--text-secondary);
   font-family: var(--font-display);
-  font-size: 0.85rem;
+  font-size: 0.84rem;
   font-weight: 500;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   text-decoration: none;
-  transition: border-color var(--transition-fast), color var(--transition-fast);
+  transition: border-color var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
 }
 
 .ctaSecondary:hover {
   border-color: var(--tempest-border-active);
   color: var(--text-primary);
+  background: rgba(56, 189, 248, 0.04);
 }
 
 .btnGlow {
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at center, rgba(56, 189, 248, 0.18) 0%, transparent 70%);
+  background: radial-gradient(ellipse at center, rgba(56, 189, 248, 0.2) 0%, transparent 70%);
   opacity: 0;
   transition: opacity var(--transition-smooth);
   pointer-events: none;
@@ -134,45 +135,61 @@
 
 .orb1 {
   position: absolute;
-  top: 15%;
-  right: 10%;
-  width: 280px;
-  height: 280px;
+  top: 12%;
+  right: 8%;
+  width: 320px;
+  height: 320px;
   border-radius: 50%;
-  background: radial-gradient(ellipse, rgba(56, 189, 248, 0.07) 0%, transparent 70%);
+  background: radial-gradient(ellipse, rgba(56, 189, 248, 0.08) 0%, transparent 70%);
   animation: pulse-glow 4s ease-in-out infinite;
 }
 
 .orb2 {
   position: absolute;
-  bottom: 20%;
-  left: 8%;
-  width: 200px;
-  height: 200px;
+  bottom: 18%;
+  left: 6%;
+  width: 220px;
+  height: 220px;
   border-radius: 50%;
-  background: radial-gradient(ellipse, rgba(45, 212, 191, 0.06) 0%, transparent 70%);
-  animation: pulse-glow 5.5s ease-in-out infinite 1s;
+  background: radial-gradient(ellipse, rgba(45, 212, 191, 0.07) 0%, transparent 70%);
+  animation: pulse-glow 5.5s ease-in-out infinite 1.2s;
 }
 
 .orb3 {
   position: absolute;
-  top: 40%;
-  left: 20%;
-  width: 140px;
-  height: 140px;
+  top: 42%;
+  left: 18%;
+  width: 160px;
+  height: 160px;
   border-radius: 50%;
-  background: radial-gradient(ellipse, rgba(129, 140, 248, 0.05) 0%, transparent 70%);
-  animation: pulse-glow 7s ease-in-out infinite 2s;
+  background: radial-gradient(ellipse, rgba(129, 140, 248, 0.06) 0%, transparent 70%);
+  animation: pulse-glow 7s ease-in-out infinite 2.5s;
 }
 
 .heroGrid {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(56, 189, 248, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(56, 189, 248, 0.03) 1px, transparent 1px);
-  background-size: 60px 60px;
-  mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 30%, transparent 100%);
+    linear-gradient(rgba(56, 189, 248, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.025) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse 85% 80% at 50% 50%, black 20%, transparent 100%);
+  z-index: 0;
+}
+
+.energyLines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.energyLine {
+  position: absolute;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.4), rgba(45, 212, 191, 0.2), transparent);
+  animation: energy-stream 4s ease-in-out infinite;
 }
 
 .statsBar {
@@ -180,8 +197,8 @@
   z-index: 2;
   border-top: 1px solid var(--tempest-border);
   border-bottom: 1px solid var(--tempest-border);
-  background: rgba(6, 13, 26, 0.7);
-  backdrop-filter: blur(12px);
+  background: rgba(6, 13, 26, 0.75);
+  backdrop-filter: blur(16px);
 }
 
 .statsInner {
@@ -196,7 +213,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 28px 16px;
+  padding: 30px 16px;
   border-right: 1px solid var(--tempest-border);
 }
 
@@ -208,14 +225,15 @@
   font-weight: 700;
   color: var(--glow-blue);
   text-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+  line-height: 1;
+  margin-bottom: 6px;
 }
 
 .statLabel {
-  font-size: 0.7rem;
-  letter-spacing: 0.12em;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text-muted);
-  margin-top: 4px;
 }
 
 .featured {
@@ -250,7 +268,7 @@
 }
 
 .sectionTitle {
-  font-size: 1.6rem;
+  font-size: 1.65rem;
   font-weight: 700;
   color: var(--text-primary);
 }
@@ -259,9 +277,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-family: var(--font-display);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   color: var(--text-secondary);
   text-decoration: none;
   transition: color var(--transition-fast);
@@ -274,6 +292,61 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 20px;
+}
+
+.emptyFeatured {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 60px 24px;
+  text-align: center;
+  background: var(--tempest-panel);
+  border: 1px dashed var(--tempest-border);
+  border-radius: var(--radius-xl);
+}
+
+.emptyIcon {
+  color: var(--glow-blue);
+  opacity: 0.25;
+  margin-bottom: 4px;
+}
+
+.emptyFeatured p {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  color: var(--text-secondary);
+}
+
+.emptyFeatured span {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  max-width: 340px;
+}
+
+.emptyBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 20px;
+  background: rgba(56, 189, 248, 0.09);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: var(--radius-md);
+  color: var(--glow-blue);
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-decoration: none;
+  margin-top: 8px;
+  transition: background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.emptyBtn:hover {
+  background: rgba(56, 189, 248, 0.16);
+  border-color: rgba(56, 189, 248, 0.55);
+  box-shadow: 0 0 18px rgba(56, 189, 248, 0.18);
 }
 
 .about {
@@ -290,10 +363,7 @@
   flex-wrap: wrap;
 }
 
-.aboutLeft {
-  flex: 1;
-  min-width: 280px;
-}
+.aboutLeft { flex: 1; min-width: 280px; }
 
 .aboutTitle {
   font-size: 1.8rem;
@@ -305,7 +375,7 @@
 .aboutText {
   font-size: 0.9rem;
   color: var(--text-secondary);
-  line-height: 1.8;
+  line-height: 1.85;
   margin-bottom: 14px;
 }
 
@@ -318,13 +388,19 @@
 
 .skill {
   font-family: var(--font-display);
-  font-size: 0.68rem;
-  letter-spacing: 0.1em;
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
   color: var(--text-label);
-  background: rgba(56, 189, 248, 0.06);
+  background: rgba(56, 189, 248, 0.07);
   border: 1px solid var(--tempest-border);
   border-radius: var(--radius-sm);
   padding: 5px 12px;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.skill:hover {
+  border-color: var(--tempest-border-active);
+  background: rgba(56, 189, 248, 0.12);
 }
 
 .aboutRight {
@@ -335,8 +411,8 @@
 
 .avatarWrap {
   position: relative;
-  width: 180px;
-  height: 180px;
+  width: 190px;
+  height: 190px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -352,22 +428,30 @@
 
 .avatarRing2 {
   position: absolute;
-  inset: 16px;
+  inset: 18px;
   border-radius: 50%;
   border: 1px solid rgba(56, 189, 248, 0.12);
   animation: pulse-glow 3s ease-in-out infinite 1s;
 }
 
-.avatarCore {
-  width: 100px;
-  height: 100px;
+.avatarRing3 {
+  position: absolute;
+  inset: 36px;
   border-radius: 50%;
-  background: radial-gradient(ellipse, rgba(56, 189, 248, 0.15) 0%, rgba(3, 6, 15, 0.8) 70%);
-  border: 1px solid rgba(56, 189, 248, 0.25);
+  border: 1px solid rgba(56, 189, 248, 0.07);
+  animation: pulse-glow 3s ease-in-out infinite 2s;
+}
+
+.avatarCore {
+  width: 108px;
+  height: 108px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(56, 189, 248, 0.18) 0%, rgba(3, 6, 15, 0.85) 70%);
+  border: 1px solid rgba(56, 189, 248, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 40px rgba(56, 189, 248, 0.15);
+  box-shadow: 0 0 50px rgba(56, 189, 248, 0.18);
 }
 
 .cta {
@@ -377,14 +461,15 @@
 
 .ctaPanel {
   position: relative;
-  max-width: 640px;
+  max-width: 660px;
   margin: 0 auto;
   text-align: center;
-  padding: 60px 40px;
+  padding: 64px 44px;
   background: var(--tempest-panel);
   border: 1px solid var(--tempest-border-active);
   border-radius: var(--radius-xl);
   overflow: hidden;
+  box-shadow: 0 0 60px rgba(56, 189, 248, 0.06);
 }
 
 .ctaGlow {
@@ -392,25 +477,40 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 400px;
-  height: 200px;
-  background: radial-gradient(ellipse, rgba(56, 189, 248, 0.1) 0%, transparent 70%);
+  width: 500px;
+  height: 250px;
+  background: radial-gradient(ellipse, rgba(56, 189, 248, 0.11) 0%, transparent 70%);
   pointer-events: none;
 }
 
+.ctaEnergyLines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
 .ctaTitle {
-  font-size: 1.6rem;
+  font-size: 1.65rem;
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 12px;
   position: relative;
+  z-index: 2;
 }
 
 .ctaSub {
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   color: var(--text-secondary);
-  margin-bottom: 28px;
+  margin-bottom: 30px;
   position: relative;
+  z-index: 2;
+}
+
+.ctaPanel .ctaPrimary {
+  position: relative;
+  z-index: 2;
+  justify-content: center;
 }
 
 @media (max-width: 900px) {
@@ -420,8 +520,13 @@
 }
 
 @media (max-width: 600px) {
+  .heroContent { padding: 100px 20px 60px; }
   .heroTitle { font-size: 2.8rem; }
+  .heroSub { font-size: 0.9rem; }
   .statsInner { grid-template-columns: repeat(2, 1fr); }
   .aboutPanel { flex-direction: column-reverse; gap: 36px; }
-  .ctaPanel { padding: 40px 20px; }
+  .ctaPanel { padding: 44px 22px; }
+  .featured { padding: 60px 20px; }
+  .about { padding: 60px 20px; }
+  .cta { padding: 60px 20px; }
 }

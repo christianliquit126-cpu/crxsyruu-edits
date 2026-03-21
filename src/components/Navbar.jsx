@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import styles from './Navbar.module.css'
 
@@ -8,7 +8,7 @@ const NAV_ITEMS = [
     label: 'Tempest Flow',
     sublabel: '01',
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
         <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
         <polyline points="9,22 9,12 15,12 15,22"/>
       </svg>
@@ -19,7 +19,7 @@ const NAV_ITEMS = [
     label: 'Tempest Archive',
     sublabel: '02',
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
         <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
         <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
       </svg>
@@ -30,7 +30,7 @@ const NAV_ITEMS = [
     label: 'Tempest Upload',
     sublabel: '03',
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
         <polyline points="16,16 12,12 8,16"/>
         <line x1="12" y1="12" x2="12" y2="21"/>
         <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/>
@@ -42,7 +42,7 @@ const NAV_ITEMS = [
     label: 'Tempest Stats',
     sublabel: '04',
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
         <line x1="18" y1="20" x2="18" y2="10"/>
         <line x1="12" y1="20" x2="12" y2="4"/>
         <line x1="6" y1="20" x2="6" y2="14"/>
@@ -54,7 +54,9 @@ const NAV_ITEMS = [
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [audioPlaying, setAudioPlaying] = useState(false)
   const location = useLocation()
+  const audioRef = useRef(null)
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40)
@@ -65,6 +67,25 @@ export default function Navbar() {
   useEffect(() => {
     setMenuOpen(false)
   }, [location.pathname])
+
+  useEffect(() => {
+    if (menuOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => { document.body.style.overflow = '' }
+  }, [menuOpen])
+
+  const toggleAudio = () => {
+    if (!audioRef.current) return
+    if (audioPlaying) {
+      audioRef.current.pause()
+      setAudioPlaying(false)
+    } else {
+      audioRef.current.play().then(() => setAudioPlaying(true)).catch(() => {})
+    }
+  }
 
   return (
     <nav className={`${styles.nav} ${scrolled ? styles.scrolled : ''}`}>
@@ -106,7 +127,7 @@ export default function Navbar() {
             }
           >
             <span className={styles.navIcon}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
               </svg>
             </span>
@@ -114,15 +135,46 @@ export default function Navbar() {
           </NavLink>
         </div>
 
-        <button
-          className={`${styles.hamburger} ${menuOpen ? styles.open : ''}`}
-          onClick={() => setMenuOpen(!menuOpen)}
-          aria-label="Toggle navigation"
-        >
-          <span /><span /><span />
-        </button>
+        <div className={styles.navRight}>
+          <button
+            className={`${styles.audioBtn} ${audioPlaying ? styles.audioBtnActive : ''}`}
+            onClick={toggleAudio}
+            aria-label={audioPlaying ? 'Pause music' : 'Play ambient music'}
+            title={audioPlaying ? 'Pause music' : 'Play ambient music'}
+          >
+            {audioPlaying ? (
+              <div className={styles.visualizer}>
+                <span className={styles.bar1} />
+                <span className={styles.bar2} />
+                <span className={styles.bar3} />
+                <span className={styles.bar4} />
+                <span className={styles.bar5} />
+              </div>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M9 18V5l12-2v13"/>
+                <circle cx="6" cy="18" r="3"/>
+                <circle cx="18" cy="16" r="3"/>
+              </svg>
+            )}
+          </button>
+
+          <button
+            className={`${styles.hamburger} ${menuOpen ? styles.open : ''}`}
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-label="Toggle navigation"
+          >
+            <span /><span /><span />
+          </button>
+        </div>
       </div>
       <div className={styles.navLine} />
+
+      <audio ref={audioRef} loop preload="none" src="/audio/tempest-ambient.mp3" />
+
+      {menuOpen && (
+        <div className={styles.mobileOverlay} onClick={() => setMenuOpen(false)} />
+      )}
     </nav>
   )
 }

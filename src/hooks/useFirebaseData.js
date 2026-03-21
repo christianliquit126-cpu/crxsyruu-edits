@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react'
-import { ref, onValue, push, set, remove, increment, runTransaction } from 'firebase/database'
+import { useState, useEffect } from 'react'
+import { ref, onValue, push, set, remove, runTransaction, update } from 'firebase/database'
 import { database, isConfigured } from '../lib/firebase'
-import { DEMO_EDITS, DEMO_STATS } from '../lib/demoData'
+
+const EMPTY_STATS = { totalViews: 0, totalEdits: 0, recentActivity: [] }
 
 export const useEdits = () => {
-  const [edits, setEdits] = useState(DEMO_EDITS)
+  const [edits, setEdits] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -31,14 +32,14 @@ export const useEdits = () => {
 }
 
 export const useStats = () => {
-  const [stats, setStats] = useState(DEMO_STATS)
+  const [stats, setStats] = useState(EMPTY_STATS)
 
   useEffect(() => {
     if (!isConfigured || !database) return
     const statsRef = ref(database, 'stats')
     const unsub = onValue(statsRef, (snapshot) => {
       const data = snapshot.val()
-      if (data) setStats(data)
+      if (data) setStats({ ...EMPTY_STATS, ...data })
     })
     return () => unsub()
   }, [])
@@ -53,6 +54,13 @@ export const incrementView = async (editId) => {
     await runTransaction(viewRef, (current) => (current || 0) + 1)
     const totalRef = ref(database, 'stats/totalViews')
     await runTransaction(totalRef, (current) => (current || 0) + 1)
+
+    const now = Date.now()
+    const actRef = ref(database, 'stats/recentActivity')
+    const actSnap = await new Promise(resolve => onValue(actRef, resolve, { onlyOnce: true }))
+    const acts = actSnap.val() ? Object.values(actSnap.val()) : []
+    const updated = [{ action: 'New view on', target: editId, time: 'just now', ts: now }, ...acts].slice(0, 20)
+    await set(actRef, updated)
   } catch (err) {
     console.warn('[Tempest] View increment failed:', err.message)
   }
@@ -60,17 +68,25 @@ export const incrementView = async (editId) => {
 
 export const pushEdit = async (editData) => {
   if (!isConfigured || !database) {
-    console.info('[Tempest] Demo mode — edit not persisted to Firebase')
-    return { id: `demo_${Date.now()}`, ...editData }
+    console.info('[Tempest] Firebase not configured — edit not persisted')
+    return { id: `local_${Date.now()}`, ...editData }
   }
   const editsRef = ref(database, 'edits')
   const newRef = push(editsRef)
-  await set(newRef, { ...editData, id: newRef.key })
+  const payload = { ...editData, id: newRef.key }
+  await set(newRef, payload)
 
   const countRef = ref(database, 'stats/totalEdits')
   await runTransaction(countRef, (c) => (c || 0) + 1)
 
-  return { id: newRef.key, ...editData }
+  const now = Date.now()
+  const actRef = ref(database, 'stats/recentActivity')
+  const actSnap = await new Promise(resolve => onValue(actRef, resolve, { onlyOnce: true }))
+  const acts = actSnap.val() ? Object.values(actSnap.val()) : []
+  const updated = [{ action: 'Upload complete', target: editData.title, time: 'just now', ts: now }, ...acts].slice(0, 20)
+  await set(actRef, updated)
+
+  return payload
 }
 
 export const deleteEdit = async (editId) => {
@@ -78,4 +94,14 @@ export const deleteEdit = async (editId) => {
   await remove(ref(database, `edits/${editId}`))
   const countRef = ref(database, 'stats/totalEdits')
   await runTransaction(countRef, (c) => Math.max((c || 1) - 1, 0))
+}
+
+export const toggleFeatured = async (editId, currentValue) => {
+  if (!isConfigured || !database) return
+  await update(ref(database, `edits/${editId}`), { featured: !currentValue })
+}
+
+export const updateEdit = async (editId, updates) => {
+  if (!isConfigured || !database) return
+  await update(ref(database, `edits/${editId}`), updates)
 }

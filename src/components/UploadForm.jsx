@@ -5,7 +5,21 @@ import { pushEdit } from '../hooks/useFirebaseData'
 import { CATEGORIES } from '../lib/demoData'
 import styles from './UploadForm.module.css'
 
-const UPLOAD_STATES = { IDLE: 'idle', UPLOADING: 'uploading', PROCESSING: 'processing', COMPLETE: 'complete', ERROR: 'error' }
+const UPLOAD_STATES = {
+  IDLE: 'idle',
+  UPLOADING: 'uploading',
+  PROCESSING: 'processing',
+  COMPLETE: 'complete',
+  ERROR: 'error',
+}
+
+const MAX_FILE_SIZE = 4 * 1024 * 1024 * 1024
+
+const formatSize = (bytes) => {
+  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  return `${(bytes / 1024).toFixed(0)} KB`
+}
 
 export default function UploadForm({ onSuccess }) {
   const [file, setFile] = useState(null)
@@ -13,7 +27,13 @@ export default function UploadForm({ onSuccess }) {
   const [dragging, setDragging] = useState(false)
   const [uploadState, setUploadState] = useState(UPLOAD_STATES.IDLE)
   const [progress, setProgress] = useState(0)
-  const [formData, setFormData] = useState({ title: '', description: '', category: 'AMV', tags: '' })
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    category: 'AMV',
+    tags: '',
+    featured: false,
+  })
   const [error, setError] = useState('')
   const fileInputRef = useRef(null)
 
@@ -21,8 +41,14 @@ export default function UploadForm({ onSuccess }) {
     if (!f) return
     const isVideo = f.type.startsWith('video/')
     const isImage = f.type.startsWith('image/')
-    if (!isVideo && !isImage) { setError('Only video and image files are supported.'); return }
-    if (f.size > 500 * 1024 * 1024) { setError('File must be under 500MB.'); return }
+    if (!isVideo && !isImage) {
+      setError('Only video and image files are supported.')
+      return
+    }
+    if (f.size > MAX_FILE_SIZE) {
+      setError('File must be under 4 GB.')
+      return
+    }
     setError('')
     setFile(f)
     const url = URL.createObjectURL(f)
@@ -37,10 +63,13 @@ export default function UploadForm({ onSuccess }) {
   }, [handleFile])
 
   const handleDragOver = (e) => { e.preventDefault(); setDragging(true) }
-  const handleDragLeave = () => setDragging(false)
+  const handleDragLeave = (e) => {
+    if (!e.currentTarget.contains(e.relatedTarget)) setDragging(false)
+  }
 
   const handleInputChange = (e) => {
-    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }))
+    const { name, value, type, checked } = e.target
+    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }))
   }
 
   const handleSubmit = async (e) => {
@@ -56,34 +85,45 @@ export default function UploadForm({ onSuccess }) {
       const result = await uploadToCloudinary(file, setProgress)
 
       setUploadState(UPLOAD_STATES.PROCESSING)
-      await new Promise(r => setTimeout(r, 800))
+      await new Promise(r => setTimeout(r, 1000))
 
       const tags = formData.tags.split(',').map(t => t.trim()).filter(Boolean)
+      const isVideo = preview?.type === 'video'
+
       const editData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
         category: formData.category,
         tags,
-        thumbnail: preview?.type === 'image' ? result.url : result.url,
-        videoUrl: preview?.type === 'video' ? result.url : '',
+        thumbnail: isVideo
+          ? `https://res.cloudinary.com/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/video/upload/so_0,w_1280,h_720,c_fill,q_auto/${result.publicId}.jpg`
+          : result.url,
+        videoUrl: isVideo ? result.url : '',
         views: 0,
-        featured: false,
+        featured: formData.featured,
         uploadedAt: Date.now(),
         uploader: 'Crxsyruu',
         publicId: result.publicId,
         resourceType: result.resourceType,
+        quality: result.width && result.height
+          ? (result.width >= 3840 ? '4K UHD' : result.width >= 1920 ? '1080p HD' : 'SD')
+          : undefined,
+        width: result.width,
+        height: result.height,
+        duration: result.duration,
       }
 
       await pushEdit(editData)
       setUploadState(UPLOAD_STATES.COMPLETE)
+
       setTimeout(() => {
         onSuccess && onSuccess(editData)
         setUploadState(UPLOAD_STATES.IDLE)
         setFile(null)
         setPreview(null)
         setProgress(0)
-        setFormData({ title: '', description: '', category: 'AMV', tags: '' })
-      }, 2800)
+        setFormData({ title: '', description: '', category: 'AMV', tags: '', featured: false })
+      }, 3000)
     } catch (err) {
       setError(err.message || 'Upload failed. Please try again.')
       setUploadState(UPLOAD_STATES.ERROR)
@@ -109,6 +149,8 @@ export default function UploadForm({ onSuccess }) {
           onChange={(e) => handleFile(e.target.files[0])}
         />
 
+        <div className={styles.dropBorderAnim} />
+
         <AnimatePresence mode="wait">
           {!file ? (
             <motion.div
@@ -117,18 +159,26 @@ export default function UploadForm({ onSuccess }) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
             >
-              <div className={styles.uploadIcon}>
-                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
-                  <polyline points="16,16 12,12 8,16"/>
-                  <line x1="12" y1="12" x2="12" y2="21"/>
-                  <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/>
-                </svg>
+              <div className={styles.uploadIconWrap}>
+                <div className={styles.uploadIconRing} />
+                <div className={styles.uploadIcon}>
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
+                    <polyline points="16,16 12,12 8,16"/>
+                    <line x1="12" y1="12" x2="12" y2="21"/>
+                    <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/>
+                  </svg>
+                </div>
               </div>
               <p className={styles.dropTitle}>Drag & drop your file here</p>
               <p className={styles.dropSub}>or click to browse</p>
-              <p className={styles.dropMeta}>Video or image — up to 500MB</p>
-              <div className={styles.dropBorderAnim} />
+              <div className={styles.dropBadges}>
+                <span className={styles.dropBadge}>Video</span>
+                <span className={styles.dropBadge}>Image</span>
+                <span className={`${styles.dropBadge} ${styles.uhdBadge}`}>Ultra HD Ready</span>
+              </div>
+              <p className={styles.dropMeta}>MP4 · MOV · WebM · JPG · PNG · up to 4 GB</p>
             </motion.div>
           ) : (
             <motion.div
@@ -137,21 +187,30 @@ export default function UploadForm({ onSuccess }) {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.25 }}
             >
               {preview?.type === 'video' ? (
-                <video src={preview.url} className={styles.previewMedia} muted />
+                <video src={preview.url} className={styles.previewMedia} muted playsInline />
               ) : (
                 <img src={preview.url} alt="preview" className={styles.previewMedia} />
               )}
               <div className={styles.previewInfo}>
                 <span className={styles.fileName}>{file.name}</span>
-                <span className={styles.fileSize}>{(file.size / 1024 / 1024).toFixed(1)} MB</span>
+                <span className={styles.fileSize}>{formatSize(file.size)}</span>
+                {file.size >= 1920 * 1080 * 4 && (
+                  <span className={styles.uhdPill}>Ultra HD</span>
+                )}
                 <button
                   type="button"
                   className={styles.removeFile}
-                  onClick={(e) => { e.stopPropagation(); setFile(null); setPreview(null) }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setFile(null)
+                    setPreview(null)
+                    if (fileInputRef.current) fileInputRef.current.value = ''
+                  }}
                 >
-                  Remove
+                  Remove file
                 </button>
               </div>
             </motion.div>
@@ -166,7 +225,7 @@ export default function UploadForm({ onSuccess }) {
             name="title"
             value={formData.title}
             onChange={handleInputChange}
-            placeholder="Edit title..."
+            placeholder="Enter edit title..."
             disabled={isSubmitting}
             className={styles.input}
           />
@@ -178,7 +237,7 @@ export default function UploadForm({ onSuccess }) {
             name="description"
             value={formData.description}
             onChange={handleInputChange}
-            placeholder="Short description of this edit..."
+            placeholder="Describe this edit..."
             rows={3}
             disabled={isSubmitting}
             className={styles.textarea}
@@ -202,7 +261,9 @@ export default function UploadForm({ onSuccess }) {
           </div>
 
           <div className={styles.field}>
-            <label className={styles.label}>Tags <span className={styles.labelNote}>(comma-separated)</span></label>
+            <label className={styles.label}>
+              Tags <span className={styles.labelNote}>(comma-separated)</span>
+            </label>
             <input
               name="tags"
               value={formData.tags}
@@ -213,17 +274,34 @@ export default function UploadForm({ onSuccess }) {
             />
           </div>
         </div>
+
+        <label className={styles.checkRow}>
+          <input
+            type="checkbox"
+            name="featured"
+            checked={formData.featured}
+            onChange={handleInputChange}
+            disabled={isSubmitting}
+            className={styles.checkbox}
+          />
+          <span className={styles.checkLabel}>Mark as Featured Edit</span>
+          <span className={styles.checkNote}>Featured edits are highlighted on the home page</span>
+        </label>
       </div>
 
       {error && (
-        <div className={styles.errorMsg}>
+        <motion.div
+          className={styles.errorMsg}
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="10"/>
             <line x1="12" y1="8" x2="12" y2="12"/>
             <line x1="12" y1="16" x2="12.01" y2="16"/>
           </svg>
           {error}
-        </div>
+        </motion.div>
       )}
 
       <AnimatePresence>
@@ -235,17 +313,28 @@ export default function UploadForm({ onSuccess }) {
             exit={{ opacity: 0, height: 0 }}
           >
             <div className={styles.progressLabel}>
-              <span>{uploadState === UPLOAD_STATES.UPLOADING ? 'Uploading...' : 'Processing...'}</span>
-              <span>{progress}%</span>
+              <span className={styles.progressState}>
+                {uploadState === UPLOAD_STATES.UPLOADING
+                  ? '⬆ Uploading to Cloudinary...'
+                  : '⚙ Processing & optimizing...'}
+              </span>
+              <span className={styles.progressPct}>{uploadState === UPLOAD_STATES.PROCESSING ? '100' : progress}%</span>
             </div>
             <div className={styles.progressBar}>
               <motion.div
                 className={styles.progressFill}
-                animate={{ width: `${uploadState === UPLOAD_STATES.PROCESSING ? 100 : progress}%` }}
+                animate={{
+                  width: `${uploadState === UPLOAD_STATES.PROCESSING ? 100 : progress}%`
+                }}
                 transition={{ duration: 0.4, ease: 'easeOut' }}
               />
               <div className={styles.progressGlow} />
             </div>
+            <p className={styles.progressSub}>
+              {uploadState === UPLOAD_STATES.UPLOADING
+                ? 'Large files may take a moment — Ultra HD quality preserved'
+                : 'Generating thumbnails and optimizing delivery'}
+            </p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -259,11 +348,12 @@ export default function UploadForm({ onSuccess }) {
             exit={{ opacity: 0, scale: 0.9 }}
           >
             <div className={styles.successGlow} />
+            <div className={styles.successPulse} />
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
               <polyline points="22,4 12,14.01 9,11.01"/>
             </svg>
-            Upload complete — Tempest Archive updated
+            <span>Upload complete — Tempest Archive updated</span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -274,20 +364,27 @@ export default function UploadForm({ onSuccess }) {
         disabled={isSubmitting || uploadState === UPLOAD_STATES.COMPLETE}
       >
         {isSubmitting ? (
-          <span className={styles.btnSpinner} />
+          <>
+            <span className={styles.btnSpinner} />
+            {uploadState === UPLOAD_STATES.UPLOADING ? 'Uploading...' : 'Processing...'}
+          </>
         ) : (
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <polyline points="16,16 12,12 8,16"/>
-            <line x1="12" y1="12" x2="12" y2="21"/>
-            <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/>
-          </svg>
+          <>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="16,16 12,12 8,16"/>
+              <line x1="12" y1="12" x2="12" y2="21"/>
+              <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/>
+            </svg>
+            Upload to Tempest Archive
+          </>
         )}
-        {isSubmitting ? 'Uploading...' : 'Upload to Tempest Archive'}
         <span className={styles.btnGlow} />
       </button>
 
       {!isCloudinaryConfigured && (
-        <p className={styles.demoNote}>Running in demo mode — Cloudinary credentials not configured.</p>
+        <p className={styles.demoNote}>
+          Cloudinary not configured — uploads are simulated in demo mode.
+        </p>
       )}
     </form>
   )
