@@ -1,0 +1,216 @@
+.page {
+  min-height: 100vh;
+  position: relative;
+  z-index: 1;
+  padding-bottom: 80px;
+}
+
+.header {
+  position: relative;
+  padding: 140px 24px 60px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--tempest-border);
+}
+
+.headerContent {
+  max-width: 1280px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 2;
+}
+
+.headerGlow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 500px;
+  height: 250px;
+  background: radial-gradient(ellipse, rgba(56, 189, 248, 0.07) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.title {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 10px 0 10px;
+}
+
+.subtitle {
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+}
+
+.layout {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 48px 24px;
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 32px;
+  align-items: start;
+}
+
+.formPanel {
+  background: var(--tempest-panel);
+  border: 1px solid var(--tempest-border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-label);
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--tempest-border);
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: sticky;
+  top: 84px;
+}
+
+.infoCard {
+  background: var(--tempest-panel);
+  border: 1px solid var(--tempest-border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+}
+
+.infoHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-label);
+  margin-bottom: 14px;
+}
+
+.guideList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.guideList li {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  padding-left: 14px;
+  position: relative;
+}
+
+.guideList li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(56, 189, 248, 0.5);
+}
+
+.stateList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stateItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.stateDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 3px;
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.stateName {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.stateDesc {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.successCard {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: rgba(45, 212, 191, 0.04);
+  border: 1px solid rgba(45, 212, 191, 0.2);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  overflow: hidden;
+}
+
+.successGlow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at top left, rgba(45, 212, 191, 0.1) 0%, transparent 70%);
+  pointer-events: none;
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.successTitle {
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--glow-teal);
+  margin-bottom: 4px;
+}
+
+.successName {
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.successLink {
+  font-size: 0.75rem;
+  color: var(--glow-blue);
+  text-decoration: none;
+  font-family: var(--font-display);
+  letter-spacing: 0.06em;
+  transition: color var(--transition-fast);
+}
+
+.successLink:hover { color: var(--glow-cyan); }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  .sidebar { position: static; }
+}
