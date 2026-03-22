@@ -88,7 +88,7 @@ function MagneticBtn({ children, className, onClick, ...props }) {
   )
 }
 
-export default function Navbar({ performanceModeOn, setPerformanceModeOn }) {
+export default function Navbar({ performanceModeOn, setPerformanceModeOn, globalMute = false, onGlobalMuteChange }) {
   const [scrolled, setScrolled] = useState(false)
   const [hidden, setHidden] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -200,6 +200,27 @@ export default function Navbar({ performanceModeOn, setPerformanceModeOn }) {
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <polyline points="13,2 3,14 12,14 11,22 21,10 12,10"/>
             </svg>
+          </MagneticBtn>
+
+          <MagneticBtn
+            className={`${styles.perfBtn} ${globalMute ? styles.perfActive : ''}`}
+            onClick={() => { sounds.tap(); onGlobalMuteChange?.(!globalMute) }}
+            aria-label={globalMute ? 'Unmute all videos' : 'Mute all videos'}
+            title={globalMute ? 'Unmute all videos' : 'Mute all videos'}
+          >
+            {globalMute ? (
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/>
+                <line x1="23" y1="9" x2="17" y2="15"/>
+                <line x1="17" y1="9" x2="23" y2="15"/>
+              </svg>
+            ) : (
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+              </svg>
+            )}
           </MagneticBtn>
 
           <MagneticBtn

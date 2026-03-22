@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import styles from './GalleryCard.module.css'
 import { sounds } from '../lib/sound'
 
@@ -29,8 +29,7 @@ const timeAgo = (ts) => {
   if (m < 60) return `${m}m ago`
   const h = Math.floor(m / 60)
   if (h < 24) return `${h}h ago`
-  const d = Math.floor(h / 24)
-  return `${d}d ago`
+  return `${Math.floor(h / 24)}d ago`
 }
 
 function HighlightText({ text, query }) {
@@ -46,7 +45,43 @@ function HighlightText({ text, query }) {
   )
 }
 
-export default function GalleryCard({ edit, onOpen, featured = false, searchQuery = '', focused = false }) {
+function generateThumbnail(videoUrl, callback) {
+  const video = document.createElement('video')
+  video.crossOrigin = 'anonymous'
+  video.preload = 'metadata'
+  video.muted = true
+  video.src = videoUrl
+  video.addEventListener('loadeddata', () => {
+    video.currentTime = 1.5
+  }, { once: true })
+  video.addEventListener('seeked', () => {
+    try {
+      const canvas = document.createElement('canvas')
+      canvas.width = 480
+      canvas.height = 270
+      const ctx = canvas.getContext('2d')
+      ctx.drawImage(video, 0, 0, 480, 270)
+      callback(canvas.toDataURL('image/jpeg', 0.8))
+    } catch {}
+    video.src = ''
+  }, { once: true })
+  video.addEventListener('error', () => { video.src = '' }, { once: true })
+}
+
+const LONG_PRESS_MENU_MS = 600
+const DOUBLE_TAP_MS = 300
+
+export default function GalleryCard({
+  edit,
+  onOpen,
+  featured = false,
+  searchQuery = '',
+  focused = false,
+  heatScore = 0,
+  onNavigate,
+  allEdits = [],
+  globalMute = false,
+}) {
   const [tilted, setTilted] = useState({ x: 0, y: 0 })
   const [hovered, setHovered] = useState(false)
   const [glowPos, setGlowPos] = useState({ x: 50, y: 50 })
@@ -56,29 +91,53 @@ export default function GalleryCard({ edit, onOpen, featured = false, searchQuer
   const [holdActive, setHoldActive] = useState(false)
   const [buffering, setBuffering] = useState(false)
   const [videoProgress, setVideoProgress] = useState(0)
+  const [imgLoaded, setImgLoaded] = useState(false)
+  const [generatedThumb, setGeneratedThumb] = useState(null)
+  const [showLongPressMenu, setShowLongPressMenu] = useState(false)
+  const [doubleTapBurst, setDoubleTapBurst] = useState(false)
+  const [preloaded, setPreloaded] = useState(false)
+  const [trailPos, setTrailPos] = useState({ x: 50, y: 50 })
+
   const cardRef = useRef(null)
   const videoRef = useRef(null)
   const holdTimerRef = useRef(null)
+  const longPressTimerRef = useRef(null)
   const soundHoverRef = useRef(false)
+  const lastTapRef = useRef(0)
+  const touchStartRef = useRef(null)
+  const draggingRef = useRef(false)
+  const longPressActiveRef = useRef(false)
+
   const isMobile = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
   const catColor = CATEGORY_COLORS[edit.category] || 'var(--glow-blue)'
+  const thumbnail = generatedThumb || edit.thumbnail
+
+  useEffect(() => {
+    if (!edit.thumbnail && edit.videoUrl && !generatedThumb) {
+      generateThumbnail(edit.videoUrl, (url) => setGeneratedThumb(url))
+    }
+  }, [edit.videoUrl, edit.thumbnail, generatedThumb])
 
   useEffect(() => {
     const video = videoRef.current
     if (!video || !edit.videoUrl) return
     const obs = new IntersectionObserver(
       ([entry]) => {
+        if (entry.isIntersecting && !preloaded) {
+          video.preload = 'metadata'
+          setPreloaded(true)
+        }
         if (!entry.isIntersecting && !holdActive) {
           video.pause()
           video.currentTime = 0
           setVideoProgress(0)
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.1, rootMargin: '100px' }
     )
     if (cardRef.current) obs.observe(cardRef.current)
     return () => obs.disconnect()
-  }, [edit.videoUrl, holdActive])
+  }, [edit.videoUrl, holdActive, preloaded])
 
   useEffect(() => {
     const video = videoRef.current
@@ -90,6 +149,12 @@ export default function GalleryCard({ edit, onOpen, featured = false, searchQuer
     return () => video.removeEventListener('timeupdate', onTimeUpdate)
   }, [])
 
+  useEffect(() => {
+    if (focused && cardRef.current) {
+      cardRef.current.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+    }
+  }, [focused])
+
   const handleMouseMove = useCallback((e) => {
     if (isMobile) return
     const card = cardRef.current
@@ -98,10 +163,10 @@ export default function GalleryCard({ edit, onOpen, featured = false, searchQuer
     const cx = ((e.clientX - rect.left) / rect.width - 0.5) * 2
     const cy = ((e.clientY - rect.top) / rect.height - 0.5) * 2
     setTilted({ x: cy * -7, y: cx * 7 })
-    setGlowPos({
-      x: ((e.clientX - rect.left) / rect.width) * 100,
-      y: ((e.clientY - rect.top) / rect.height) * 100,
-    })
+    const gx = ((e.clientX - rect.left) / rect.width) * 100
+    const gy = ((e.clientY - rect.top) / rect.height) * 100
+    setGlowPos({ x: gx, y: gy })
+    setTrailPos({ x: gx, y: gy })
   }, [isMobile])
 
   const handleMouseEnter = useCallback(() => {
@@ -112,14 +177,18 @@ export default function GalleryCard({ edit, onOpen, featured = false, searchQuer
       sounds.hover()
     }
     if (videoRef.current && edit.videoUrl) {
+      videoRef.current.muted = globalMute
       videoRef.current.play().catch(() => {})
     }
-  }, [isMobile, edit.videoUrl])
+  }, [isMobile, edit.videoUrl, globalMute])
 
   const handleMouseLeave = useCallback(() => {
     setTilted({ x: 0, y: 0 })
     setHovered(false)
     soundHoverRef.current = false
+    setShowLongPressMenu(false)
+    longPressActiveRef.current = false
+    clearTimeout(longPressTimerRef.current)
     if (videoRef.current && !holdActive) {
       videoRef.current.pause()
       videoRef.current.currentTime = 0
@@ -133,23 +202,57 @@ export default function GalleryCard({ edit, onOpen, featured = false, searchQuer
     setHoldActive(false)
   }, [holdActive])
 
-  const startHold = useCallback(() => {
+  const startHold = useCallback((e) => {
+    touchStartRef.current = {
+      x: e.touches?.[0]?.clientX ?? e.clientX,
+      y: e.touches?.[0]?.clientY ?? e.clientY,
+      time: Date.now(),
+    }
+    draggingRef.current = false
+    longPressActiveRef.current = false
+
+    longPressTimerRef.current = setTimeout(() => {
+      if (!draggingRef.current) {
+        longPressActiveRef.current = true
+        setShowLongPressMenu(true)
+        sounds.toggle()
+      }
+    }, LONG_PRESS_MENU_MS)
+
     if (!edit.videoUrl) return
     holdTimerRef.current = setTimeout(() => {
-      setHoldActive(true)
-      setIsHolding(true)
-      sounds.videoPlay()
-      if (videoRef.current) {
-        videoRef.current.muted = true
-        videoRef.current.play().catch(() => {})
+      if (!longPressActiveRef.current && !draggingRef.current) {
+        setHoldActive(true)
+        setIsHolding(true)
+        sounds.videoPlay()
+        if (videoRef.current) {
+          videoRef.current.muted = globalMute
+          videoRef.current.play().catch(() => {})
+        }
       }
-    }, 250)
-  }, [edit.videoUrl])
+    }, 280)
+  }, [edit.videoUrl, globalMute])
+
+  const handleTouchMove = useCallback((e) => {
+    if (!touchStartRef.current) return
+    const dx = Math.abs((e.touches[0]?.clientX ?? 0) - touchStartRef.current.x)
+    const dy = Math.abs((e.touches[0]?.clientY ?? 0) - touchStartRef.current.y)
+    if (dx > 12 || dy > 12) {
+      draggingRef.current = true
+      clearTimeout(longPressTimerRef.current)
+      clearTimeout(holdTimerRef.current)
+    }
+  }, [])
 
   const endHold = useCallback((e) => {
+    clearTimeout(longPressTimerRef.current)
     if (holdTimerRef.current) {
       clearTimeout(holdTimerRef.current)
       holdTimerRef.current = null
+    }
+    if (longPressActiveRef.current) {
+      longPressActiveRef.current = false
+      return true
     }
     if (holdActive) {
       if (videoRef.current) {
@@ -158,8 +261,8 @@ export default function GalleryCard({ edit, onOpen, featured = false, searchQuer
       }
       setHoldActive(false)
       setIsHolding(false)
-      e?.preventDefault()
-      e?.stopPropagation()
+      e?.preventDefault?.()
+      e?.stopPropagation?.()
       return true
     }
     setIsHolding(false)
@@ -167,7 +270,21 @@ export default function GalleryCard({ edit, onOpen, featured = false, searchQuer
   }, [holdActive, hovered])
 
   const handleClick = useCallback((e) => {
+    if (showLongPressMenu) { setShowLongPressMenu(false); return }
+    if (draggingRef.current) return
     if (endHold(e)) return
+
+    const now = Date.now()
+    const dt = now - lastTapRef.current
+    lastTapRef.current = now
+
+    if (dt < DOUBLE_TAP_MS) {
+      setDoubleTapBurst(true)
+      sounds.success()
+      setTimeout(() => setDoubleTapBurst(false), 900)
+      return
+    }
+
     const card = cardRef.current
     if (!card) return
     const rect = card.getBoundingClientRect()
@@ -178,10 +295,27 @@ export default function GalleryCard({ edit, onOpen, featured = false, searchQuer
     setTimeout(() => setRipples(prev => prev.filter(r => r.id !== id)), 700)
     sounds.tap()
     onOpen && onOpen(edit)
-  }, [edit, onOpen, endHold])
+  }, [edit, onOpen, endHold, showLongPressMenu])
+
+  const handleLongPressAction = (action) => {
+    setShowLongPressMenu(false)
+    sounds.tap()
+    if (action === 'view') onOpen && onOpen(edit)
+    if (action === 'fullscreen') {
+      onOpen && onOpen(edit)
+    }
+    if (action === 'share') {
+      if (navigator.share) {
+        navigator.share({ title: edit.title, text: edit.description || '' }).catch(() => {})
+      } else {
+        try { navigator.clipboard.writeText(window.location.href) } catch {}
+      }
+    }
+  }
 
   const showVideo = (hovered && videoReady) || holdActive
   const showProgress = (showVideo || holdActive) && videoProgress > 0
+  const heatOpacity = Math.min(heatScore / 50, 1)
 
   return (
     <motion.div
@@ -194,6 +328,9 @@ export default function GalleryCard({ edit, onOpen, featured = false, searchQuer
         '--glow-x': `${glowPos.x}%`,
         '--glow-y': `${glowPos.y}%`,
         '--cat-color': catColor,
+        '--heat-opacity': heatOpacity,
+        '--trail-x': `${trailPos.x}%`,
+        '--trail-y': `${trailPos.y}%`,
       }}
       onMouseMove={handleMouseMove}
       onMouseEnter={handleMouseEnter}
@@ -201,6 +338,7 @@ export default function GalleryCard({ edit, onOpen, featured = false, searchQuer
       onMouseDown={startHold}
       onMouseUp={endHold}
       onTouchStart={startHold}
+      onTouchMove={handleTouchMove}
       onTouchEnd={endHold}
       onClick={handleClick}
       initial={{ opacity: 0, y: 24 }}
@@ -210,17 +348,42 @@ export default function GalleryCard({ edit, onOpen, featured = false, searchQuer
       layout
     >
       {ripples.map(r => (
-        <span
-          key={r.id}
-          className={styles.ripple}
-          style={{ left: r.x, top: r.y }}
-        />
+        <span key={r.id} className={styles.ripple} style={{ left: r.x, top: r.y }} />
       ))}
+
+      {doubleTapBurst && (
+        <div className={styles.doubleTapBurst}>
+          <svg viewBox="0 0 100 100" width="100" height="100">
+            {[0, 45, 90, 135, 180, 225, 270, 315].map((angle, i) => (
+              <line
+                key={i}
+                x1="50" y1="50"
+                x2={50 + 38 * Math.cos((angle * Math.PI) / 180)}
+                y2={50 + 38 * Math.sin((angle * Math.PI) / 180)}
+                stroke="var(--glow-cyan)"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                className={styles.burstRay}
+                style={{ animationDelay: `${i * 0.03}s` }}
+              />
+            ))}
+            <circle cx="50" cy="50" r="8" fill="none" stroke="var(--glow-blue)" strokeWidth="1.5" className={styles.burstCircle} />
+            <circle cx="50" cy="50" r="3" fill="var(--glow-cyan)" className={styles.burstCore} />
+          </svg>
+        </div>
+      )}
 
       <div className={styles.cursorGlow} />
       <div className={styles.edgeLighting} />
       <div className={styles.lightReflection} />
       <div className={styles.shadowDepth} />
+      <div className={styles.highlightTrail} />
+
+      {heatScore > 5 && (
+        <div className={styles.heatIndicator} style={{ opacity: 0.4 + heatOpacity * 0.6 }}>
+          <div className={styles.heatBar} style={{ width: `${Math.min(100, heatScore * 2)}%` }} />
+        </div>
+      )}
 
       {featured && (
         <div className={styles.featuredBadge}>
@@ -241,25 +404,35 @@ export default function GalleryCard({ edit, onOpen, featured = false, searchQuer
       )}
 
       <div className={styles.thumbWrap}>
+        {!imgLoaded && (
+          <div className={styles.blurPlaceholder}>
+            {thumbnail && (
+              <img src={thumbnail} alt="" className={styles.blurImg} aria-hidden="true" />
+            )}
+          </div>
+        )}
         <img
-          src={edit.thumbnail}
+          src={thumbnail}
           alt={edit.title}
-          className={`${styles.thumb} ${showVideo && edit.videoUrl ? styles.thumbHidden : ''}`}
+          className={`${styles.thumb} ${showVideo && edit.videoUrl ? styles.thumbHidden : ''} ${imgLoaded ? styles.thumbLoaded : styles.thumbLoading}`}
           loading="lazy"
+          onLoad={() => setImgLoaded(true)}
         />
         {edit.videoUrl && (
           <video
             ref={videoRef}
-            src={edit.videoUrl}
             className={`${styles.hoverVideo} ${showVideo ? styles.hoverVideoVisible : ''}`}
-            muted
+            muted={globalMute}
             loop
             playsInline
-            preload="none"
+            preload={preloaded ? 'metadata' : 'none'}
             onCanPlay={() => setVideoReady(true)}
             onWaiting={() => setBuffering(true)}
             onPlaying={() => setBuffering(false)}
-          />
+          >
+            <source src={edit.videoUrl} type="video/mp4" />
+            {edit.videoUrlWebm && <source src={edit.videoUrlWebm} type="video/webm" />}
+          </video>
         )}
         {buffering && (hovered || holdActive) && (
           <div className={styles.bufferingRing}>
@@ -334,7 +507,43 @@ export default function GalleryCard({ edit, onOpen, featured = false, searchQuer
       </div>
 
       <div className={styles.borderGlow} />
+      <div className={styles.animatedBorder} />
       {featured && <div className={styles.featuredPulse} />}
+
+      <AnimatePresence>
+        {showLongPressMenu && (
+          <motion.div
+            className={styles.longPressMenu}
+            initial={{ opacity: 0, scale: 0.88, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 4 }}
+            transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
+            onClick={e => e.stopPropagation()}
+          >
+            <button className={styles.menuItem} onClick={() => handleLongPressAction('view')}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="5,3 19,12 5,21"/>
+              </svg>
+              View
+            </button>
+            <button className={styles.menuItem} onClick={() => handleLongPressAction('fullscreen')}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="15,3 21,3 21,9"/><polyline points="9,21 3,21 3,15"/>
+                <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+              </svg>
+              Fullscreen
+            </button>
+            <button className={styles.menuItem} onClick={() => handleLongPressAction('share')}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+              </svg>
+              Share
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }

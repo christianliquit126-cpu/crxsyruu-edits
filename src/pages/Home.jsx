@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useEdits, useStats } from '../hooks/useFirebaseData'
@@ -8,6 +8,7 @@ import VideoModal from '../components/VideoModal'
 import styles from './Home.module.css'
 import { useScrollFade } from '../hooks/useScrollFade'
 import { sounds } from '../lib/sound'
+import { session } from '../lib/session'
 
 const AnimatedCounter = ({ target, duration = 2000 }) => {
   const [count, setCount] = useState(0)
@@ -44,32 +45,83 @@ const EnergyLine = ({ style, delay = 0 }) => (
 function FadeSection({ children, className, style, delay = 0 }) {
   const ref = useScrollFade()
   return (
-    <div
-      ref={ref}
-      className={className}
-      style={{ ...style, transitionDelay: `${delay}s` }}
-    >
+    <div ref={ref} className={className} style={{ ...style, transitionDelay: `${delay}s` }}>
       {children}
     </div>
   )
 }
 
-export default function Home() {
+const getDynamicFeatured = (edits) => {
+  const now = Date.now()
+  const scored = edits.map(e => {
+    const ageDays = (now - (e.uploadedAt || 0)) / 86400000
+    const recency = Math.max(0, 1 - ageDays / 30)
+    const score = (e.views || 0) * (1 + recency * 2)
+    return { ...e, _score: score }
+  })
+  return scored.sort((a, b) => b._score - a._score).slice(0, 3)
+}
+
+export default function Home({ globalMute = false, onGlobalMuteChange }) {
   const { edits } = useEdits()
   const stats = useStats()
   const [selectedEdit, setSelectedEdit] = useState(null)
-  const featured = edits.filter(e => e.featured).slice(0, 3)
+  const [restoredEdit, setRestoredEdit] = useState(null)
+
+  const manualFeatured = edits.filter(e => e.featured).slice(0, 3)
+  const featured = manualFeatured.length > 0 ? manualFeatured : getDynamicFeatured(edits)
 
   const totalViews = stats.totalViews || edits.reduce((s, e) => s + (e.views || 0), 0)
   const totalEdits = stats.totalEdits || edits.length
 
+  useEffect(() => {
+    if (edits.length === 0) return
+    const lastId = session.getLastViewed()
+    if (lastId) {
+      const match = edits.find(e => e.id === lastId)
+      if (match) setRestoredEdit(match)
+    }
+  }, [edits])
+
   const handleOpenEdit = (edit) => {
     sounds.open()
+    session.saveLastViewed(edit.id)
     setSelectedEdit(edit)
+  }
+
+  const handleRestoreEdit = () => {
+    if (restoredEdit) {
+      handleOpenEdit(restoredEdit)
+      setRestoredEdit(null)
+    }
   }
 
   return (
     <div className={styles.page}>
+      {restoredEdit && (
+        <motion.div
+          className={styles.restoreBanner}
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.4 }}
+        >
+          <div className={styles.restoreInner}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="1,4 1,10 7,10"/>
+              <path d="M3.51,15a9,9,0,1,0,.49-4.95"/>
+            </svg>
+            <span>Resume where you left off — <strong>{restoredEdit.title}</strong></span>
+            <button className={styles.restoreBtn} onClick={handleRestoreEdit}>Resume</button>
+            <button className={styles.restoreDismiss} onClick={() => setRestoredEdit(null)}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+        </motion.div>
+      )}
+
       <section className={styles.hero}>
         <div className={styles.heroGlow} />
         <div className={styles.heroGlow2} />
@@ -93,8 +145,17 @@ export default function Home() {
           >
             <span className="label-tag">Digital Realm — Tempest Flow</span>
             <h1 className={styles.heroTitle}>
-              Crxsyruu<br />
-              <span className={styles.heroTitleAccent}>Tempest</span>
+              <span className={styles.heroTitleWord}>Crxsyruu</span>
+              <br />
+              <span className={styles.heroTitleAccent}>
+                <span className={styles.logoLetterT}>T</span>
+                <span className={styles.logoLetterE}>e</span>
+                <span className={styles.logoLetterM}>m</span>
+                <span className={styles.logoLetterP}>p</span>
+                <span className={styles.logoLetterE2}>e</span>
+                <span className={styles.logoLetterS}>s</span>
+                <span className={styles.logoLetterT2}>t</span>
+              </span>
             </h1>
             <p className={styles.heroSub}>
               Video editor. Storyteller. Slime enthusiast.<br />
@@ -113,6 +174,17 @@ export default function Home() {
             </div>
           </motion.div>
         </div>
+
+        <div className={styles.logoOrbit}>
+          <svg viewBox="0 0 200 200" width="200" height="200" className={styles.orbitSvg}>
+            <circle cx="100" cy="100" r="80" stroke="rgba(56,189,248,0.08)" strokeWidth="1" fill="none" strokeDasharray="4 8"/>
+            <circle cx="100" cy="100" r="56" stroke="rgba(45,212,191,0.06)" strokeWidth="1" fill="none"/>
+            <circle cx="100" cy="20" r="4" fill="var(--glow-blue)" opacity="0.6" className={styles.orbitDot1}/>
+            <circle cx="180" cy="100" r="3" fill="var(--glow-cyan)" opacity="0.5" className={styles.orbitDot2}/>
+            <circle cx="44" cy="144" r="3" fill="var(--glow-teal)" opacity="0.5" className={styles.orbitDot3}/>
+          </svg>
+        </div>
+
         <div className={styles.heroBottomGrad} />
       </section>
 
@@ -145,10 +217,14 @@ export default function Home() {
         <div className={styles.sectionHeader}>
           <div>
             <div className={styles.sectionTag}>
-              <span className="label-tag">Featured Works</span>
+              <span className="label-tag">
+                {manualFeatured.length > 0 ? 'Featured Works' : 'Top Edits — Auto Selected'}
+              </span>
               <div className={styles.liveIndicator} />
             </div>
-            <h2 className={styles.sectionTitle}>Highlighted Edits</h2>
+            <h2 className={styles.sectionTitle}>
+              {manualFeatured.length > 0 ? 'Highlighted Edits' : 'Trending Edits'}
+            </h2>
           </div>
           <Link to="/gallery" className={styles.seeAll} onClick={() => sounds.tap()}>
             View Full Archive
@@ -167,6 +243,7 @@ export default function Home() {
                 edit={edit}
                 featured={i === 0}
                 onOpen={handleOpenEdit}
+                globalMute={globalMute}
               />
             ))}
           </div>
@@ -226,9 +303,10 @@ export default function Home() {
               <div className={styles.avatarRing2} />
               <div className={styles.avatarRing3} />
               <div className={styles.avatarCore}>
-                <svg width="52" height="52" viewBox="0 0 64 64" fill="none">
+                <svg width="52" height="52" viewBox="0 0 64 64" fill="none" className={styles.avatarSvg}>
                   <circle cx="32" cy="32" r="28" stroke="var(--glow-blue)" strokeWidth="1" opacity="0.4"/>
-                  <polygon points="32,12 44,28 38,28 38,52 26,52 26,28 20,28" fill="var(--glow-blue)" opacity="0.9"/>
+                  <polygon points="32,12 44,28 38,28 38,52 26,52 26,28 20,28" fill="var(--glow-blue)" opacity="0.9"
+                    className={styles.avatarBolt}/>
                   <circle cx="32" cy="32" r="6" fill="var(--glow-cyan)"/>
                   <circle cx="32" cy="32" r="2.5" fill="white"/>
                 </svg>
@@ -259,7 +337,12 @@ export default function Home() {
         </div>
       </FadeSection>
 
-      <VideoModal edit={selectedEdit} onClose={() => setSelectedEdit(null)} />
+      <VideoModal
+        edit={selectedEdit}
+        onClose={() => setSelectedEdit(null)}
+        globalMute={globalMute}
+        onGlobalMuteChange={onGlobalMuteChange}
+      />
     </div>
   )
 }

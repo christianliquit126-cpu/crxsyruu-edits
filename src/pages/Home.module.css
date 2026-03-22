@@ -2,6 +2,65 @@
   min-height: 100vh;
 }
 
+.restoreBanner {
+  position: fixed;
+  top: calc(var(--nav-height) + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 90;
+  width: min(520px, 92vw);
+}
+
+.restoreInner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: rgba(6, 13, 26, 0.97);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(56,189,248,0.12);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  flex-wrap: nowrap;
+}
+
+.restoreInner svg { flex-shrink: 0; color: var(--glow-blue); }
+.restoreInner span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.restoreInner strong { color: var(--glow-cyan); }
+
+.restoreBtn {
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  background: rgba(56, 189, 248, 0.1);
+  color: var(--glow-blue);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.restoreBtn:hover { background: rgba(56,189,248,0.2); border-color: rgba(56,189,248,0.7); }
+
+.restoreDismiss {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+.restoreDismiss:hover { color: var(--text-primary); }
+
 .hero {
   position: relative;
   min-height: 100vh;
@@ -116,6 +175,10 @@
   text-shadow: 0 0 60px rgba(56, 189, 248, 0.25);
 }
 
+.heroTitleWord {
+  color: var(--text-primary);
+}
+
 .heroTitleAccent {
   color: var(--glow-blue);
   text-shadow:
@@ -124,6 +187,72 @@
     0 0 100px rgba(56, 189, 248, 0.15);
   display: block;
 }
+
+.logoLetterT  { display: inline-block; animation: letter-appear 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.2s both; }
+.logoLetterE  { display: inline-block; animation: letter-appear 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.3s both; }
+.logoLetterM  { display: inline-block; animation: letter-appear 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.4s both; }
+.logoLetterP  { display: inline-block; animation: letter-appear 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.5s both; }
+.logoLetterE2 { display: inline-block; animation: letter-appear 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.6s both; }
+.logoLetterS  { display: inline-block; animation: letter-appear 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.7s both; }
+.logoLetterT2 { display: inline-block; animation: letter-appear 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.8s both; }
+
+@keyframes letter-appear {
+  0% { opacity: 0; transform: translateY(0.3em) scale(0.7); filter: blur(8px); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+.logoOrbit {
+  position: absolute;
+  right: 8%;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.7;
+}
+
+.orbitSvg { animation: orbit-rotate 28s linear infinite; }
+
+.orbitDot1 { animation: orbit-dot1 6s linear infinite; }
+.orbitDot2 { animation: orbit-dot2 6s linear infinite; }
+.orbitDot3 { animation: orbit-dot3 6s linear infinite; }
+
+@keyframes orbit-rotate {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes orbit-dot1 {
+  0% { cx: 100; cy: 20; }
+  25% { cx: 180; cy: 100; }
+  50% { cx: 100; cy: 180; }
+  75% { cx: 20; cy: 100; }
+  100% { cx: 100; cy: 20; }
+}
+
+@keyframes orbit-dot2 {
+  0% { cx: 180; cy: 100; }
+  25% { cx: 100; cy: 180; }
+  50% { cx: 20; cy: 100; }
+  75% { cx: 100; cy: 20; }
+  100% { cx: 180; cy: 100; }
+}
+
+@keyframes orbit-dot3 {
+  0% { cx: 100; cy: 180; }
+  25% { cx: 20; cy: 100; }
+  50% { cx: 100; cy: 20; }
+  75% { cx: 180; cy: 100; }
+  100% { cx: 100; cy: 180; }
+}
+
+.avatarBolt { animation: logo-bolt-appear 0.6s cubic-bezier(0.34,1.56,0.64,1) 0.8s both; transform-origin: 32px 32px; }
+
+@keyframes logo-bolt-appear {
+  0% { transform: scale(0) rotate(-15deg); opacity: 0; }
+  100% { transform: scale(1) rotate(0deg); opacity: 0.9; }
+}
+
+.avatarSvg { display: block; }
 
 .heroSub {
   font-size: 1rem;

@@ -25,11 +25,14 @@ src/
 │   ├── firebase.js      # Firebase init (gracefully degrades to demo mode if unconfigured)
 │   ├── cloudinary.js    # Cloudinary upload + URL helpers (degrades to demo mode)
 │   ├── demoData.js      # CATEGORIES list only (demo edits/stats removed)
-│   └── sound.js         # Web Audio API synthetic sound system (tap, hover, open, close, nav, toggle, swipe, videoPlay)
+│   ├── sound.js         # Web Audio API synthetic sound system (tap, hover, open, close, nav, toggle, swipe, videoPlay)
+│   └── session.js       # Persistent session memory: video timestamps, scroll positions, volume, mute, last viewed, interactions
 ├── hooks/
-│   ├── useFirebaseData.js      # Firebase listeners (useEdits, useStats, incrementView, pushEdit, deleteEdit, toggleFeatured, updateEdit)
-│   ├── useDevicePerformance.js # Low-end device detection (reduces animations)
-│   └── useScrollFade.js        # IntersectionObserver scroll-fade-in hook (useScrollFade, useScrollFadeAll)
+│   ├── useFirebaseData.js        # Firebase listeners (useEdits, useStats, incrementView, pushEdit, deleteEdit, toggleFeatured, updateEdit)
+│   ├── useDevicePerformance.js   # Low-end device detection (reduces animations)
+│   ├── useScrollFade.js          # IntersectionObserver scroll-fade-in hook
+│   ├── useSystemIntelligence.js  # Idle detection (28s), time-of-day theming, adaptive animation speed via --anim-speed CSS var
+│   └── useInteractionTracking.js # Admin-only click/play/hover heatmap scoring per edit
 ├── components/
 │   ├── Navbar.jsx / .module.css        # Fixed navbar — hide-on-scroll, magnetic buttons, audio visualizer, performance toggle
 │   ├── ParticleBackground.jsx          # Canvas particle system with connection lines

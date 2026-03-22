@@ -14,7 +14,9 @@ import Stats from './pages/Stats'
 import Admin from './pages/Admin'
 import styles from './App.module.css'
 import { useDevicePerformance } from './hooks/useDevicePerformance'
+import { useSystemIntelligence } from './hooks/useSystemIntelligence'
 import { initSound } from './lib/sound'
+import { session } from './lib/session'
 
 function PageTransition({ children }) {
   const location = useLocation()
@@ -34,9 +36,11 @@ function PageTransition({ children }) {
   )
 }
 
-function AppInner({ performanceModeOn, setPerformanceModeOn }) {
+function AppInner({ performanceModeOn, setPerformanceModeOn, globalMute, onGlobalMuteChange }) {
   const { isLowEnd } = useDevicePerformance()
   const perf = performanceModeOn || isLowEnd
+
+  useSystemIntelligence()
 
   useEffect(() => {
     const unlock = () => { initSound(); document.removeEventListener('click', unlock) }
@@ -50,11 +54,16 @@ function AppInner({ performanceModeOn, setPerformanceModeOn }) {
       <ParticleBackground />
       <div className={styles.ambientGradient} />
       {!perf && <div className={styles.noiseOverlay} />}
-      <Navbar performanceModeOn={performanceModeOn} setPerformanceModeOn={setPerformanceModeOn} />
+      <Navbar
+        performanceModeOn={performanceModeOn}
+        setPerformanceModeOn={setPerformanceModeOn}
+        globalMute={globalMute}
+        onGlobalMuteChange={onGlobalMuteChange}
+      />
       <main className={styles.main}>
         <Routes>
-          <Route path="/" element={<PageTransition><Home /></PageTransition>} />
-          <Route path="/gallery" element={<PageTransition><Gallery /></PageTransition>} />
+          <Route path="/" element={<PageTransition><Home globalMute={globalMute} onGlobalMuteChange={onGlobalMuteChange} /></PageTransition>} />
+          <Route path="/gallery" element={<PageTransition><Gallery globalMute={globalMute} onGlobalMuteChange={onGlobalMuteChange} /></PageTransition>} />
           <Route path="/upload" element={<PageTransition><Upload /></PageTransition>} />
           <Route path="/stats" element={<PageTransition><Stats /></PageTransition>} />
           <Route path="/admin" element={<PageTransition><Admin /></PageTransition>} />
@@ -63,11 +72,15 @@ function AppInner({ performanceModeOn, setPerformanceModeOn }) {
       <footer className={styles.footer}>
         <div className={styles.footerInner}>
           <div className={styles.footerBrand}>
-            <svg width="16" height="16" viewBox="0 0 64 64" fill="none">
-              <circle cx="32" cy="32" r="28" stroke="var(--glow-blue)" strokeWidth="1.5" opacity="0.5"/>
-              <polygon points="32,14 42,26 37,26 37,50 27,50 27,26 22,26" fill="var(--glow-blue)" opacity="0.9"/>
-              <circle cx="32" cy="32" r="4" fill="var(--glow-cyan)"/>
-            </svg>
+            <div className={styles.logoWrap}>
+              <svg width="18" height="18" viewBox="0 0 64 64" fill="none" className={styles.logoSvg}>
+                <circle cx="32" cy="32" r="28" stroke="var(--glow-blue)" strokeWidth="1.5" opacity="0.5"
+                  strokeDasharray="176" strokeDashoffset="176" className={styles.logoCircle}/>
+                <polygon points="32,14 42,26 37,26 37,50 27,50 27,26 22,26" fill="var(--glow-blue)" opacity="0.9"
+                  className={styles.logoBolt}/>
+                <circle cx="32" cy="32" r="4" fill="var(--glow-cyan)" className={styles.logoCore}/>
+              </svg>
+            </div>
             <span>Crxsyruu Tempest</span>
           </div>
           <div className={styles.footerLinks}>
@@ -91,10 +104,16 @@ export default function App() {
   const [performanceModeOn, setPerformanceModeOn] = useState(() => {
     try { return localStorage.getItem('tempest_perf') === '1' } catch { return false }
   })
+  const [globalMute, setGlobalMute] = useState(() => session.getGlobalMute())
 
   const togglePerformanceMode = (val) => {
     setPerformanceModeOn(val)
     try { localStorage.setItem('tempest_perf', val ? '1' : '0') } catch {}
+  }
+
+  const handleGlobalMuteChange = (val) => {
+    setGlobalMute(val)
+    session.setGlobalMute(val)
   }
 
   return (
@@ -105,6 +124,8 @@ export default function App() {
           <AppInner
             performanceModeOn={performanceModeOn}
             setPerformanceModeOn={togglePerformanceMode}
+            globalMute={globalMute}
+            onGlobalMuteChange={handleGlobalMuteChange}
           />
         )}
       </BrowserRouter>

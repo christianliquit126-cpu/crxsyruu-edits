@@ -54,6 +54,28 @@
   --transition-spring: 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
 
   --nav-height: 64px;
+
+  --anim-speed: 1;
+  --glow-intensity: 1;
+  --ambient-brightness: 1;
+  --glow-blue-alpha: 0.12;
+}
+
+[data-idle="true"] * {
+  animation-play-state: paused !important;
+}
+
+[data-idle="true"] .particle,
+[data-idle="true"] .orb1,
+[data-idle="true"] .orb2,
+[data-idle="true"] .orb3 {
+  opacity: 0 !important;
+}
+
+[data-perf="low"] .cursorGlow,
+[data-perf="low"] .lightReflection,
+[data-perf="low"] .highlightTrail {
+  display: none !important;
 }
 
 html {

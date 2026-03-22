@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useEdits } from '../hooks/useFirebaseData'
 import { isConfigured } from '../lib/firebase'
@@ -7,8 +7,10 @@ import GalleryCard from '../components/GalleryCard'
 import VideoModal from '../components/VideoModal'
 import { CATEGORIES } from '../lib/demoData'
 import { useAdmin } from '../context/AdminContext'
+import { useInteractionTracking } from '../hooks/useInteractionTracking'
 import styles from './Gallery.module.css'
 import { sounds } from '../lib/sound'
+import { session } from '../lib/session'
 import { useScrollFade } from '../hooks/useScrollFade'
 
 const SORT_OPTIONS = [
@@ -33,9 +35,21 @@ function FadeSection({ children, className }) {
   return <div ref={ref} className={className}>{children}</div>
 }
 
-export default function Gallery() {
+const getDynamicFeatured = (edits) => {
+  const now = Date.now()
+  const scored = edits.map(e => {
+    const ageDays = (now - (e.uploadedAt || 0)) / 86400000
+    const recency = Math.max(0, 1 - ageDays / 30)
+    const score = (e.views || 0) * (1 + recency * 2)
+    return { ...e, _score: score }
+  })
+  return scored.sort((a, b) => b._score - a._score).slice(0, 3)
+}
+
+export default function Gallery({ globalMute = false, onGlobalMuteChange }) {
   const { edits, loading } = useEdits()
   const { isAdmin } = useAdmin()
+  const location = useLocation()
   const [selectedEdit, setSelectedEdit] = useState(null)
   const [activeCategory, setActiveCategory] = useState('All')
   const [searchQuery, setSearchQuery] = useState('')
@@ -43,6 +57,10 @@ export default function Gallery() {
   const [focusedId, setFocusedId] = useState(null)
   const searchRef = useRef(null)
   const headerRef = useScrollFade()
+  const pageRef = useRef(null)
+  const scrollRestored = useRef(false)
+
+  const { track, getHeatScore } = useInteractionTracking(isAdmin)
 
   const categories = useMemo(() => ['All', ...CATEGORIES], [])
 
@@ -65,14 +83,48 @@ export default function Gallery() {
     }
   }, [edits, activeCategory, searchQuery, sortBy])
 
+  useEffect(() => {
+    if (!loading && filteredEdits.length > 0 && !scrollRestored.current) {
+      scrollRestored.current = true
+      const saved = session.getScroll(location.pathname)
+      if (saved > 0) {
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: saved, behavior: 'instant' })
+        })
+      }
+
+      const lastViewed = session.getLastViewed()
+      if (lastViewed) {
+        const match = filteredEdits.find(e => e.id === lastViewed)
+        if (match) {
+          setFocusedId(match.id)
+          setTimeout(() => setFocusedId(null), 2400)
+        }
+      }
+    }
+  }, [loading, filteredEdits, location.pathname])
+
+  useEffect(() => {
+    const handleScroll = () => {
+      session.saveScroll(location.pathname, window.scrollY)
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [location.pathname])
+
   const handleOpenEdit = useCallback((edit) => {
     sounds.open()
     setSelectedEdit(edit)
-  }, [])
+    session.saveLastViewed(edit.id)
+    track(edit.id, 'click')
+    track(edit.id, 'play')
+  }, [track])
 
   const handleNavigate = useCallback((edit) => {
     setSelectedEdit(edit)
-  }, [])
+    session.saveLastViewed(edit.id)
+    track(edit.id, 'play')
+  }, [track])
 
   const handleCategoryChange = (cat) => {
     sounds.tap()
@@ -95,8 +147,18 @@ export default function Gallery() {
     setSortBy(val)
   }
 
+  const handleCardHover = useCallback((editId) => {
+    track(editId, 'hover')
+  }, [track])
+
+  const featuredEdits = useMemo(() => {
+    const manual = edits.filter(e => e.featured)
+    if (manual.length > 0) return manual
+    return getDynamicFeatured(edits)
+  }, [edits])
+
   return (
-    <div className={styles.page}>
+    <div className={styles.page} ref={pageRef}>
       <div className={styles.headerGlow} />
       <div className={styles.headerGlow2} />
 
@@ -230,10 +292,12 @@ export default function Gallery() {
                 <GalleryCard
                   key={edit.id}
                   edit={edit}
-                  featured={edit.featured}
+                  featured={edit.featured || featuredEdits.some(f => f.id === edit.id && !edits.some(e => e.featured))}
                   onOpen={handleOpenEdit}
                   searchQuery={searchQuery}
                   focused={focusedId === edit.id}
+                  heatScore={getHeatScore(edit.id)}
+                  globalMute={globalMute}
                 />
               ))}
             </div>
@@ -246,6 +310,8 @@ export default function Gallery() {
         onClose={() => setSelectedEdit(null)}
         edits={filteredEdits}
         onNavigate={handleNavigate}
+        globalMute={globalMute}
+        onGlobalMuteChange={onGlobalMuteChange}
       />
     </div>
   )
