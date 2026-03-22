@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect, memo } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useEdits } from '../hooks/useFirebaseData'
@@ -53,6 +53,7 @@ export default function Gallery({ globalMute = false, onGlobalMuteChange }) {
   const [selectedEdit, setSelectedEdit] = useState(null)
   const [activeCategory, setActiveCategory] = useState('All')
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [sortBy, setSortBy] = useState('newest')
   const [focusedId, setFocusedId] = useState(null)
   const searchRef = useRef(null)
@@ -62,6 +63,11 @@ export default function Gallery({ globalMute = false, onGlobalMuteChange }) {
 
   const { track, getHeatScore } = useInteractionTracking(isAdmin)
 
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(searchQuery), 220)
+    return () => clearTimeout(t)
+  }, [searchQuery])
+
   const categories = useMemo(() => {
     if (CATEGORIES[0] === 'All') return CATEGORIES
     return ['All', ...CATEGORIES]
@@ -70,8 +76,8 @@ export default function Gallery({ globalMute = false, onGlobalMuteChange }) {
   const filteredEdits = useMemo(() => {
     let result = edits
     if (activeCategory !== 'All') result = result.filter(e => e.category === activeCategory)
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase()
+    if (debouncedQuery.trim()) {
+      const q = debouncedQuery.toLowerCase()
       result = result.filter(e =>
         e.title?.toLowerCase().includes(q) ||
         e.description?.toLowerCase().includes(q) ||
@@ -84,7 +90,7 @@ export default function Gallery({ globalMute = false, onGlobalMuteChange }) {
       case 'oldest': return [...result].sort((a, b) => (a.uploadedAt || 0) - (b.uploadedAt || 0))
       default: return [...result].sort((a, b) => (b.uploadedAt || 0) - (a.uploadedAt || 0))
     }
-  }, [edits, activeCategory, searchQuery, sortBy])
+  }, [edits, activeCategory, debouncedQuery, sortBy])
 
   useEffect(() => {
     if (!loading && filteredEdits.length > 0 && !scrollRestored.current) {
@@ -289,22 +295,20 @@ export default function Gallery({ globalMute = false, onGlobalMuteChange }) {
             </button>
           </motion.div>
         ) : (
-          <AnimatePresence mode="sync">
-            <div className={styles.grid}>
-              {filteredEdits.map((edit) => (
-                <GalleryCard
-                  key={edit.id}
-                  edit={edit}
-                  featured={edit.featured || featuredEdits.some(f => f.id === edit.id && !edits.some(e => e.featured))}
-                  onOpen={handleOpenEdit}
-                  searchQuery={searchQuery}
-                  focused={focusedId === edit.id}
-                  heatScore={getHeatScore(edit.id)}
-                  globalMute={globalMute}
-                />
-              ))}
-            </div>
-          </AnimatePresence>
+          <div className={styles.grid}>
+            {filteredEdits.map((edit) => (
+              <GalleryCard
+                key={edit.id}
+                edit={edit}
+                featured={edit.featured || featuredEdits.some(f => f.id === edit.id && !edits.some(e => e.featured))}
+                onOpen={handleOpenEdit}
+                searchQuery={debouncedQuery}
+                focused={focusedId === edit.id}
+                heatScore={getHeatScore(edit.id)}
+                globalMute={globalMute}
+              />
+            ))}
+          </div>
         )}
       </div>
 

@@ -118,7 +118,7 @@ export default function App() {
 
   return (
     <AdminProvider>
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         {!booted && <BootIntro onComplete={() => setBooted(true)} />}
         {booted && (
           <AppInner

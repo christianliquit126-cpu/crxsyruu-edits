@@ -82,9 +82,7 @@ export default function GalleryCard({
   allEdits = [],
   globalMute = false,
 }) {
-  const [tilted, setTilted] = useState({ x: 0, y: 0 })
   const [hovered, setHovered] = useState(false)
-  const [glowPos, setGlowPos] = useState({ x: 50, y: 50 })
   const [ripples, setRipples] = useState([])
   const [videoReady, setVideoReady] = useState(false)
   const [isHolding, setIsHolding] = useState(false)
@@ -96,7 +94,6 @@ export default function GalleryCard({
   const [showLongPressMenu, setShowLongPressMenu] = useState(false)
   const [doubleTapBurst, setDoubleTapBurst] = useState(false)
   const [preloaded, setPreloaded] = useState(false)
-  const [trailPos, setTrailPos] = useState({ x: 50, y: 50 })
 
   const cardRef = useRef(null)
   const videoRef = useRef(null)
@@ -107,6 +104,8 @@ export default function GalleryCard({
   const touchStartRef = useRef(null)
   const draggingRef = useRef(false)
   const longPressActiveRef = useRef(false)
+  const rafRef = useRef(null)
+  const pendingMouseRef = useRef(null)
 
   const isMobile = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
   const catColor = CATEGORY_COLORS[edit.category] || 'var(--glow-blue)'
@@ -155,6 +154,24 @@ export default function GalleryCard({
     }
   }, [focused])
 
+  useEffect(() => {
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    }
+  }, [])
+
+  const applyMouseTransform = useCallback(() => {
+    const card = cardRef.current
+    const data = pendingMouseRef.current
+    if (!card || !data) return
+    card.style.transform = `perspective(900px) rotateX(${data.ry}deg) rotateY(${data.rx}deg)`
+    card.style.setProperty('--glow-x', `${data.gx}%`)
+    card.style.setProperty('--glow-y', `${data.gy}%`)
+    card.style.setProperty('--trail-x', `${data.gx}%`)
+    card.style.setProperty('--trail-y', `${data.gy}%`)
+    rafRef.current = null
+  }, [])
+
   const handleMouseMove = useCallback((e) => {
     if (isMobile) return
     const card = cardRef.current
@@ -162,12 +179,13 @@ export default function GalleryCard({
     const rect = card.getBoundingClientRect()
     const cx = ((e.clientX - rect.left) / rect.width - 0.5) * 2
     const cy = ((e.clientY - rect.top) / rect.height - 0.5) * 2
-    setTilted({ x: cy * -7, y: cx * 7 })
     const gx = ((e.clientX - rect.left) / rect.width) * 100
     const gy = ((e.clientY - rect.top) / rect.height) * 100
-    setGlowPos({ x: gx, y: gy })
-    setTrailPos({ x: gx, y: gy })
-  }, [isMobile])
+    pendingMouseRef.current = { rx: cx * 7, ry: cy * -7, gx, gy }
+    if (!rafRef.current) {
+      rafRef.current = requestAnimationFrame(applyMouseTransform)
+    }
+  }, [isMobile, applyMouseTransform])
 
   const handleMouseEnter = useCallback(() => {
     if (isMobile) return
@@ -183,7 +201,19 @@ export default function GalleryCard({
   }, [isMobile, edit.videoUrl, globalMute])
 
   const handleMouseLeave = useCallback(() => {
-    setTilted({ x: 0, y: 0 })
+    const card = cardRef.current
+    if (card) {
+      card.style.transform = ''
+      card.style.setProperty('--glow-x', '50%')
+      card.style.setProperty('--glow-y', '50%')
+      card.style.setProperty('--trail-x', '50%')
+      card.style.setProperty('--trail-y', '50%')
+    }
+    pendingMouseRef.current = null
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
     setHovered(false)
     soundHoverRef.current = false
     setShowLongPressMenu(false)
@@ -322,15 +352,8 @@ export default function GalleryCard({
       ref={cardRef}
       className={`${styles.card} ${featured ? styles.featured : ''} ${holdActive ? styles.holding : ''} ${focused ? styles.focused : ''}`}
       style={{
-        transform: isMobile
-          ? undefined
-          : `perspective(900px) rotateX(${tilted.x}deg) rotateY(${tilted.y}deg)`,
-        '--glow-x': `${glowPos.x}%`,
-        '--glow-y': `${glowPos.y}%`,
         '--cat-color': catColor,
         '--heat-opacity': heatOpacity,
-        '--trail-x': `${trailPos.x}%`,
-        '--trail-y': `${trailPos.y}%`,
       }}
       onMouseMove={handleMouseMove}
       onMouseEnter={handleMouseEnter}
@@ -345,7 +368,6 @@ export default function GalleryCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
       whileTap={{ scale: 0.97 }}
-      layout
     >
       {ripples.map(r => (
         <span key={r.id} className={styles.ripple} style={{ left: r.x, top: r.y }} />
@@ -404,12 +426,8 @@ export default function GalleryCard({
       )}
 
       <div className={styles.thumbWrap}>
-        {!imgLoaded && (
-          <div className={styles.blurPlaceholder}>
-            {thumbnail && (
-              <img src={thumbnail} alt="" className={styles.blurImg} aria-hidden="true" />
-            )}
-          </div>
+        {!imgLoaded && thumbnail && (
+          <div className={styles.blurPlaceholder} />
         )}
         <img
           src={thumbnail}
