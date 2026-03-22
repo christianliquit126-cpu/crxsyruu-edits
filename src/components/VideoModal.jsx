@@ -38,17 +38,22 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
   const overlayRef = useRef(null)
   const videoRef = useRef(null)
   const progressRef = useRef(null)
-  const previewCanvasRef = useRef(null)
-  const previewVideoRef = useRef(null)
   const viewTracked = useRef(false)
   const touchStartX = useRef(null)
   const saveTimer = useRef(null)
   const qualityChangeTime = useRef(null)
+  const rafUpdateRef = useRef(null)
+
+  // Direct DOM refs for progress — avoids React re-renders on every frame
+  const progressFillRef = useRef(null)
+  const progressThumbRef = useRef(null)
+  const timeDisplayRef = useRef(null)
+  const hoverTimeRef = useRef(null)
+  const currentTimeRef = useRef(0)
+  const durationRef = useRef(0)
 
   const [buffering, setBuffering] = useState(false)
   const [fullscreen, setFullscreen] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(0)
   const [muted, setMuted] = useState(() => session.getGlobalMute())
   const [volume, setVolume] = useState(() => session.getVolume())
   const [cinematic, setCinematic] = useState(false)
@@ -61,9 +66,7 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
   const [showQualityMenu, setShowQualityMenu] = useState(false)
   const [quality, setQuality] = useState('auto')
   const [previewX, setPreviewX] = useState(0)
-  const [previewTime, setPreviewTime] = useState(0)
   const [previewVisible, setPreviewVisible] = useState(false)
-  const [previewReady, setPreviewReady] = useState(false)
 
   const controlsTimeout = useRef(null)
   const currentIdx = edits.findIndex(e => e?.id === edit?.id)
@@ -72,6 +75,16 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
     () => getVideoQualityUrl(edit?.videoUrl, quality),
     [edit?.videoUrl, quality]
   )
+
+  const updateProgressDOM = useCallback(() => {
+    const t = currentTimeRef.current
+    const d = durationRef.current
+    const pct = d > 0 ? (t / d) * 100 : 0
+    if (progressFillRef.current) progressFillRef.current.style.width = `${pct}%`
+    if (progressThumbRef.current) progressThumbRef.current.style.left = `${pct}%`
+    if (timeDisplayRef.current) timeDisplayRef.current.textContent = `${formatTime(t)} / ${formatTime(d)}`
+    rafUpdateRef.current = null
+  }, [])
 
   const showControls = useCallback(() => {
     setControlsVisible(true)
@@ -102,8 +115,11 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
       session.saveLastViewed(edit.id)
     }
     if (!edit) viewTracked.current = false
-    setCurrentTime(0)
-    setDuration(0)
+    currentTimeRef.current = 0
+    durationRef.current = 0
+    if (progressFillRef.current) progressFillRef.current.style.width = '0%'
+    if (progressThumbRef.current) progressThumbRef.current.style.left = '0%'
+    if (timeDisplayRef.current) timeDisplayRef.current.textContent = '0:00 / 0:00'
     setPlaying(false)
     setSpeed(1)
     setLoop(false)
@@ -166,7 +182,10 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
   }, [edit, onClose, goNext, goPrev])
 
   useEffect(() => {
-    return () => clearTimeout(controlsTimeout.current)
+    return () => {
+      clearTimeout(controlsTimeout.current)
+      if (rafUpdateRef.current) cancelAnimationFrame(rafUpdateRef.current)
+    }
   }, [])
 
   const handleBackdrop = (e) => {
@@ -245,7 +264,7 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
     setQuality(q)
     setShowQualityMenu(false)
     sounds.tap()
-    const onLoaded = () => {
+    const onCanPlay = () => {
       const savedT = qualityChangeTime.current
       if (savedT != null && v.duration && savedT < v.duration) {
         v.currentTime = savedT
@@ -253,7 +272,7 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
       if (wasPlaying) v.play().catch(() => {})
       qualityChangeTime.current = null
     }
-    v.addEventListener('loadedmetadata', onLoaded, { once: true })
+    v.addEventListener('canplay', onCanPlay, { once: true })
   }
 
   const handleVolumeChange = (e) => {
@@ -273,18 +292,20 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
     return () => document.removeEventListener('fullscreenchange', handler)
   }, [])
 
-  const handleTimeUpdate = () => {
+  // Direct DOM updates for progress — no React state, no re-renders per frame
+  const handleTimeUpdate = useCallback(() => {
     const v = videoRef.current
     if (!v) return
-    const t = v.currentTime
-    const d = v.duration
-    setCurrentTime(t)
-    if (d) setDuration(d)
+    currentTimeRef.current = v.currentTime
+    if (v.duration) durationRef.current = v.duration
+    if (!rafUpdateRef.current) {
+      rafUpdateRef.current = requestAnimationFrame(updateProgressDOM)
+    }
     clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
-      if (edit?.id && t > 3) session.saveTimestamp(edit.id, t)
+      if (edit?.id && v.currentTime > 3) session.saveTimestamp(edit.id, v.currentTime)
     }, 5000)
-  }
+  }, [edit, updateProgressDOM])
 
   const handleProgressClick = (e) => {
     const v = videoRef.current
@@ -292,39 +313,23 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
     if (!v || !track) return
     const rect = track.getBoundingClientRect()
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-    v.currentTime = pct * v.duration
+    const d = durationRef.current
+    if (d) v.currentTime = pct * d
     sounds.tap()
   }
 
   const handleProgressHover = useCallback((e) => {
     const track = progressRef.current
-    if (!track || !duration) return
+    const d = durationRef.current
+    if (!track || !d) return
     const rect = track.getBoundingClientRect()
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-    const t = pct * duration
-    setPreviewX(e.clientX - rect.left)
-    setPreviewTime(t)
+    const t = pct * d
+    const x = Math.max(40, Math.min(e.clientX - rect.left, rect.width - 40))
+    setPreviewX(x)
+    if (hoverTimeRef.current) hoverTimeRef.current.textContent = formatTime(t)
     setPreviewVisible(true)
-
-    const pv = previewVideoRef.current
-    const canvas = previewCanvasRef.current
-    if (!pv || !canvas || !edit?.videoUrl) return
-    if (!previewReady) {
-      pv.src = edit.videoUrl
-      pv.addEventListener('loadedmetadata', () => setPreviewReady(true), { once: true })
-    }
-    if (previewReady) {
-      pv.currentTime = t
-      pv.addEventListener('seeked', () => {
-        const ctx = canvas.getContext('2d')
-        if (ctx) {
-          canvas.width = 160
-          canvas.height = 90
-          ctx.drawImage(pv, 0, 0, 160, 90)
-        }
-      }, { once: true })
-    }
-  }, [duration, edit, previewReady])
+  }, [])
 
   const handleProgressLeave = () => {
     setPreviewVisible(false)
@@ -349,7 +354,6 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
     showControls()
   }
 
-  const progress = duration > 0 ? (currentTime / duration) * 100 : 0
   const currentQualityLabel = QUALITIES.find(q => q.value === quality)?.label || 'Auto'
 
   return (
@@ -362,16 +366,16 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.22 }}
+          transition={{ duration: 0.2 }}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
           <motion.div
             className={styles.modal}
-            initial={{ scale: 0.88, opacity: 0, y: 40 }}
+            initial={{ scale: 0.9, opacity: 0, y: 32 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.9, opacity: 0, y: 40 }}
-            transition={{ duration: 0.34, ease: [0.4, 0, 0.2, 1] }}
+            exit={{ scale: 0.92, opacity: 0, y: 24 }}
+            transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
             onMouseMove={showControls}
           >
             <div className={styles.animatedBorder} />
@@ -417,6 +421,7 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
                     controls={false}
                     autoPlay
                     playsInline
+                    preload="auto"
                     loop={loop}
                     className={styles.video}
                     onWaiting={() => setBuffering(true)}
@@ -458,17 +463,15 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
                       aria-label="Video progress"
                     >
                       <div className={styles.progressBuffer} />
-                      <div className={styles.progressFill} style={{ width: `${progress}%` }} />
-                      <div className={styles.progressThumb} style={{ left: `${progress}%` }} />
+                      <div ref={progressFillRef} className={styles.progressFill} style={{ width: '0%' }} />
+                      <div ref={progressThumbRef} className={styles.progressThumb} style={{ left: '0%' }} />
 
                       {previewVisible && (
                         <div
                           className={styles.timelinePreview}
-                          style={{ left: Math.max(80, Math.min(previewX, (progressRef.current?.offsetWidth || 300) - 80)) }}
+                          style={{ left: previewX }}
                         >
-                          <canvas ref={previewCanvasRef} className={styles.previewCanvas} width="160" height="90" />
-                          <video ref={previewVideoRef} className={styles.previewVideoHidden} muted playsInline preload="metadata" />
-                          <span className={styles.previewTime}>{formatTime(previewTime)}</span>
+                          <span ref={hoverTimeRef} className={styles.previewTime}>0:00</span>
                         </div>
                       )}
                     </div>
@@ -528,9 +531,7 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
                           )}
                         </div>
 
-                        <span className={styles.timeDisplay}>
-                          {formatTime(currentTime)} / {formatTime(duration)}
-                        </span>
+                        <span ref={timeDisplayRef} className={styles.timeDisplay}>0:00 / 0:00</span>
                       </div>
 
                       <div className={styles.controlsRight}>
@@ -594,7 +595,6 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
                           className={`${styles.ctrlBtn} ${loop ? styles.ctrlActive : ''}`}
                           onClick={(e) => { e.stopPropagation(); toggleLoop() }}
                           aria-label="Toggle loop"
-                          title="Loop"
                         >
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <polyline points="17,1 21,5 17,9"/>
@@ -639,7 +639,7 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
                 </div>
               ) : (
                 <div className={styles.noVideo}>
-                  <img src={edit.thumbnail} alt={edit.title} className={styles.thumbBig} />
+                  {edit.thumbnail && <img src={edit.thumbnail} alt={edit.title} className={styles.thumbBig} />}
                   <div className={styles.noVideoOverlay}>
                     <div className={styles.noVideoMsg}>
                       <div className={styles.noVideoIcon}>
@@ -647,7 +647,7 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
                           <polygon points="5,3 19,12 5,21"/>
                         </svg>
                       </div>
-                      <span>Video preview not available</span>
+                      <span>Video not available</span>
                       <span className={styles.noVideoSub}>Viewing thumbnail</span>
                     </div>
                   </div>

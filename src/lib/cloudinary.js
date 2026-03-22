@@ -77,13 +77,38 @@ const HEIGHT_MAP = {
   '480': 'h_480',
 }
 
+const CLOUDINARY_VIDEO_BASE_PARAMS = 'f_auto,q_auto:good,vc_auto'
+
 export const getVideoQualityUrl = (url, quality) => {
-  if (!url || quality === 'auto') return url
-  const h = HEIGHT_MAP[quality]
-  if (!h) return url
+  if (!url) return url
   if (!url.includes('res.cloudinary.com')) return url
+
   const uploadIdx = url.indexOf('/upload/')
   if (uploadIdx === -1) return url
   const after = uploadIdx + 8
-  return `${url.slice(0, after)}${h},c_limit,q_auto/${url.slice(after)}`
+
+  const existingTransforms = url.slice(after)
+  const alreadyOptimized = existingTransforms.startsWith('f_') || existingTransforms.startsWith('q_') || existingTransforms.startsWith('vc_')
+
+  if (quality === 'auto') {
+    if (alreadyOptimized) return url
+    return `${url.slice(0, after)}${CLOUDINARY_VIDEO_BASE_PARAMS}/${existingTransforms}`
+  }
+
+  const h = HEIGHT_MAP[quality]
+  if (!h) return url
+
+  const qualityParams = `${h},c_limit,${CLOUDINARY_VIDEO_BASE_PARAMS}`
+  return `${url.slice(0, after)}${qualityParams}/${existingTransforms}`
+}
+
+export const getVideoThumbnailFromUrl = (videoUrl) => {
+  if (!videoUrl || !videoUrl.includes('res.cloudinary.com')) return null
+  const uploadIdx = videoUrl.indexOf('/upload/')
+  if (uploadIdx === -1) return null
+  const after = uploadIdx + 8
+  const rest = videoUrl.slice(after)
+  const noExtRest = rest.replace(/\.[^/.]+$/, '')
+  const baseUrl = videoUrl.slice(0, after)
+  return `${baseUrl}so_0,w_640,h_360,c_fill,q_auto/${noExtRest}.jpg`
 }

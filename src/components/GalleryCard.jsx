@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import styles from './GalleryCard.module.css'
 import { sounds } from '../lib/sound'
+import { getVideoThumbnailFromUrl } from '../lib/cloudinary'
 
 const CATEGORY_COLORS = {
   AMV: 'var(--glow-blue)',
@@ -45,29 +46,6 @@ function HighlightText({ text, query }) {
   )
 }
 
-function generateThumbnail(videoUrl, callback) {
-  const video = document.createElement('video')
-  video.crossOrigin = 'anonymous'
-  video.preload = 'metadata'
-  video.muted = true
-  video.src = videoUrl
-  video.addEventListener('loadeddata', () => {
-    video.currentTime = 1.5
-  }, { once: true })
-  video.addEventListener('seeked', () => {
-    try {
-      const canvas = document.createElement('canvas')
-      canvas.width = 480
-      canvas.height = 270
-      const ctx = canvas.getContext('2d')
-      ctx.drawImage(video, 0, 0, 480, 270)
-      callback(canvas.toDataURL('image/jpeg', 0.8))
-    } catch {}
-    video.src = ''
-  }, { once: true })
-  video.addEventListener('error', () => { video.src = '' }, { once: true })
-}
-
 const LONG_PRESS_MENU_MS = 600
 const DOUBLE_TAP_MS = 300
 
@@ -90,10 +68,9 @@ export default function GalleryCard({
   const [buffering, setBuffering] = useState(false)
   const [videoProgress, setVideoProgress] = useState(0)
   const [imgLoaded, setImgLoaded] = useState(false)
-  const [generatedThumb, setGeneratedThumb] = useState(null)
   const [showLongPressMenu, setShowLongPressMenu] = useState(false)
   const [doubleTapBurst, setDoubleTapBurst] = useState(false)
-  const [preloaded, setPreloaded] = useState(false)
+  const [inView, setInView] = useState(false)
 
   const cardRef = useRef(null)
   const videoRef = useRef(null)
@@ -109,34 +86,28 @@ export default function GalleryCard({
 
   const isMobile = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
   const catColor = CATEGORY_COLORS[edit.category] || 'var(--glow-blue)'
-  const thumbnail = generatedThumb || edit.thumbnail
 
-  useEffect(() => {
-    if (!edit.thumbnail && edit.videoUrl && !generatedThumb) {
-      generateThumbnail(edit.videoUrl, (url) => setGeneratedThumb(url))
-    }
-  }, [edit.videoUrl, edit.thumbnail, generatedThumb])
+  // Use provided thumbnail, or derive from Cloudinary video URL — no hidden video elements
+  const thumbnail = edit.thumbnail || getVideoThumbnailFromUrl(edit.videoUrl)
 
   useEffect(() => {
     const video = videoRef.current
     if (!video || !edit.videoUrl) return
     const obs = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && !preloaded) {
-          video.preload = 'metadata'
-          setPreloaded(true)
-        }
+        setInView(entry.isIntersecting)
         if (!entry.isIntersecting && !holdActive) {
           video.pause()
           video.currentTime = 0
           setVideoProgress(0)
+          setVideoReady(false)
         }
       },
-      { threshold: 0.1, rootMargin: '100px' }
+      { threshold: 0.1, rootMargin: '80px' }
     )
     if (cardRef.current) obs.observe(cardRef.current)
     return () => obs.disconnect()
-  }, [edit.videoUrl, holdActive, preloaded])
+  }, [edit.videoUrl, holdActive])
 
   useEffect(() => {
     const video = videoRef.current
@@ -194,11 +165,17 @@ export default function GalleryCard({
       soundHoverRef.current = true
       sounds.hover()
     }
-    if (videoRef.current && edit.videoUrl) {
-      videoRef.current.muted = globalMute
-      videoRef.current.play().catch(() => {})
+    const video = videoRef.current
+    if (video && edit.videoUrl && inView) {
+      // Only load if not already loaded
+      if (!video.src || video.src === '') {
+        video.src = edit.videoUrl
+        video.load()
+      }
+      video.muted = globalMute
+      video.play().catch(() => {})
     }
-  }, [isMobile, edit.videoUrl, globalMute])
+  }, [isMobile, edit.videoUrl, globalMute, inView])
 
   const handleMouseLeave = useCallback(() => {
     const card = cardRef.current
@@ -255,9 +232,14 @@ export default function GalleryCard({
         setHoldActive(true)
         setIsHolding(true)
         sounds.videoPlay()
-        if (videoRef.current) {
-          videoRef.current.muted = globalMute
-          videoRef.current.play().catch(() => {})
+        const video = videoRef.current
+        if (video) {
+          if (!video.src || video.src === '') {
+            video.src = edit.videoUrl
+            video.load()
+          }
+          video.muted = globalMute
+          video.play().catch(() => {})
         }
       }
     }, 280)
@@ -364,9 +346,9 @@ export default function GalleryCard({
       onTouchMove={handleTouchMove}
       onTouchEnd={endHold}
       onClick={handleClick}
-      initial={{ opacity: 0, y: 24 }}
+      initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+      transition={{ duration: 0.36, ease: [0.4, 0, 0.2, 1] }}
       whileTap={{ scale: 0.97 }}
     >
       {ripples.map(r => (
@@ -426,16 +408,18 @@ export default function GalleryCard({
       )}
 
       <div className={styles.thumbWrap}>
-        {!imgLoaded && thumbnail && (
+        {!imgLoaded && (
           <div className={styles.blurPlaceholder} />
         )}
-        <img
-          src={thumbnail}
-          alt={edit.title}
-          className={`${styles.thumb} ${showVideo && edit.videoUrl ? styles.thumbHidden : ''} ${imgLoaded ? styles.thumbLoaded : styles.thumbLoading}`}
-          loading="lazy"
-          onLoad={() => setImgLoaded(true)}
-        />
+        {thumbnail && (
+          <img
+            src={thumbnail}
+            alt={edit.title}
+            className={`${styles.thumb} ${showVideo && edit.videoUrl ? styles.thumbHidden : ''} ${imgLoaded ? styles.thumbLoaded : styles.thumbLoading}`}
+            loading="lazy"
+            onLoad={() => setImgLoaded(true)}
+          />
+        )}
         {edit.videoUrl && (
           <video
             ref={videoRef}
@@ -443,14 +427,11 @@ export default function GalleryCard({
             muted={globalMute}
             loop
             playsInline
-            preload={preloaded ? 'metadata' : 'none'}
+            preload="none"
             onCanPlay={() => setVideoReady(true)}
             onWaiting={() => setBuffering(true)}
             onPlaying={() => setBuffering(false)}
-          >
-            <source src={edit.videoUrl} type="video/mp4" />
-            {edit.videoUrlWebm && <source src={edit.videoUrlWebm} type="video/webm" />}
-          </video>
+          />
         )}
         {buffering && (hovered || holdActive) && (
           <div className={styles.bufferingRing}>
@@ -493,7 +474,7 @@ export default function GalleryCard({
 
       <div className={styles.body}>
         <div className={styles.meta}>
-          <span className={styles.category} style={{ color: catColor, borderColor: `color-mix(in srgb, ${catColor} 30%, transparent)`, boxShadow: `0 0 8px color-mix(in srgb, ${catColor} 20%, transparent)` }}>
+          <span className={styles.category} style={{ color: catColor, borderColor: `color-mix(in srgb, ${catColor} 30%, transparent)` }}>
             {edit.category}
           </span>
           <span className={styles.time}>{timeAgo(edit.uploadedAt)}</span>
@@ -535,7 +516,7 @@ export default function GalleryCard({
             initial={{ opacity: 0, scale: 0.88, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 4 }}
-            transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
+            transition={{ duration: 0.16, ease: [0.4, 0, 0.2, 1] }}
             onClick={e => e.stopPropagation()}
           >
             <button className={styles.menuItem} onClick={() => handleLongPressAction('view')}>
