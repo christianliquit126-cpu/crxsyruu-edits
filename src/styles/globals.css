@@ -212,12 +212,17 @@ input:focus, textarea:focus, select:focus {
 }
 
 .label-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-family: var(--font-display);
-  font-size: 0.6rem;
-  letter-spacing: 0.2em;
+  font-size: 0.58rem;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--text-label);
-  opacity: 0.7;
+  padding-left: 8px;
+  border-left: 2px solid rgba(56,189,248,0.45);
+  line-height: 1.4;
 }
 
 @keyframes pulse-glow {

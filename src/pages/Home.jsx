@@ -10,6 +10,58 @@ import { useScrollFade } from '../hooks/useScrollFade'
 import { sounds } from '../lib/sound'
 import { session } from '../lib/session'
 
+const SKILLS = [
+  { name: 'Color Grading', score: 96, color: 'var(--glow-blue)' },
+  { name: 'Cinematic Editing', score: 94, color: 'var(--glow-cyan)' },
+  { name: 'Narrative Craft', score: 92, color: 'var(--glow-teal)' },
+  { name: 'AMV Composition', score: 91, color: 'var(--glow-blue)' },
+  { name: 'Audio Synchronize', score: 89, color: 'var(--glow-cyan)' },
+  { name: 'Motion Graphics', score: 87, color: 'var(--glow-purple)' },
+]
+
+function SkillBar({ name, score, color, delay = 0 }) {
+  const [animated, setAnimated] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setAnimated(true) },
+      { threshold: 0.3 }
+    )
+    if (ref.current) obs.observe(ref.current)
+    return () => obs.disconnect()
+  }, [])
+
+  return (
+    <div ref={ref} className={styles.skillRow} style={{ transitionDelay: `${delay}s` }}>
+      <div className={styles.skillMeta}>
+        <span className={styles.skillName}>{name}</span>
+        <span className={styles.skillScore} style={{ color }}>{score}</span>
+      </div>
+      <div className={styles.skillTrack}>
+        <div
+          className={styles.skillFill}
+          style={{
+            width: animated ? `${score}%` : '0%',
+            background: `linear-gradient(90deg, ${color}, color-mix(in srgb, ${color} 60%, var(--glow-cyan)))`,
+            boxShadow: `0 0 10px color-mix(in srgb, ${color} 45%, transparent)`,
+            transitionDelay: `${delay}s`,
+          }}
+        />
+        <div
+          className={styles.skillThumb}
+          style={{
+            left: animated ? `${score}%` : '0%',
+            background: color,
+            boxShadow: `0 0 8px ${color}`,
+            transitionDelay: `${delay}s`,
+          }}
+        />
+      </div>
+    </div>
+  )
+}
+
 const AnimatedCounter = ({ target, duration = 2000 }) => {
   const [count, setCount] = useState(0)
   const ref = useRef(null)
@@ -62,11 +114,51 @@ const getDynamicFeatured = (edits) => {
   return scored.sort((a, b) => b._score - a._score).slice(0, 3)
 }
 
+const STAT_ITEMS = [
+  {
+    label: 'Total Views',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+        <circle cx="12" cy="12" r="3"/>
+      </svg>
+    ),
+  },
+  {
+    label: 'Edits Created',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <polygon points="23,7 16,12 23,17"/>
+        <rect x="1" y="5" width="15" height="14" rx="2"/>
+      </svg>
+    ),
+  },
+  {
+    label: 'Years Active',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <circle cx="12" cy="12" r="10"/>
+        <polyline points="12,6 12,12 16,14"/>
+      </svg>
+    ),
+  },
+  {
+    label: 'Client Satisfaction',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
+      </svg>
+    ),
+  },
+]
+
 export default function Home({ globalMute = false, onGlobalMuteChange }) {
   const { edits } = useEdits()
   const stats = useStats()
   const [selectedEdit, setSelectedEdit] = useState(null)
   const [restoredEdit, setRestoredEdit] = useState(null)
+  const [scanActive, setScanActive] = useState(false)
+  const skillRef = useRef(null)
 
   const manualFeatured = edits.filter(e => e.featured).slice(0, 3)
   const featured = manualFeatured.length > 0 ? manualFeatured : getDynamicFeatured(edits)
@@ -83,6 +175,15 @@ export default function Home({ globalMute = false, onGlobalMuteChange }) {
     }
   }, [edits])
 
+  useEffect(() => {
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setScanActive(true) },
+      { threshold: 0.2 }
+    )
+    if (skillRef.current) obs.observe(skillRef.current)
+    return () => obs.disconnect()
+  }, [])
+
   const handleOpenEdit = (edit) => {
     sounds.open()
     session.saveLastViewed(edit.id)
@@ -95,6 +196,9 @@ export default function Home({ globalMute = false, onGlobalMuteChange }) {
       setRestoredEdit(null)
     }
   }
+
+  const statValues = [totalViews, totalEdits, 3, 100]
+  const statSuffixes = ['', '', '+', '%']
 
   return (
     <div className={styles.page}>
@@ -131,10 +235,36 @@ export default function Home({ globalMute = false, onGlobalMuteChange }) {
           <div className={styles.orb3} />
         </div>
         <div className={styles.heroGrid} />
+        <div className={styles.heroPerspectiveGrid} />
+        <div className={styles.heroScanLine} />
         <div className={styles.energyLines}>
           <EnergyLine style={{ top: '20%', left: 0, width: '40%' }} delay={0} />
           <EnergyLine style={{ top: '60%', right: 0, width: '30%', animationDirection: 'reverse' }} delay={1.2} />
           <EnergyLine style={{ bottom: '30%', left: '10%', width: '20%' }} delay={0.6} />
+        </div>
+        <div className={styles.heroHexAccent}>
+          <svg viewBox="0 0 200 220" width="200" height="220">
+            {[0,1,2,3,4,5,6,7,8].map(i => {
+              const col = i % 3
+              const row = Math.floor(i / 3)
+              const x = col * 66 + (row % 2 === 1 ? 33 : 0)
+              const y = row * 57
+              const pts = Array.from({ length: 6 }, (_, k) => {
+                const a = (k * 60 - 30) * Math.PI / 180
+                return `${x + 28 * Math.cos(a)},${y + 28 * Math.sin(a)}`
+              }).join(' ')
+              return (
+                <polygon
+                  key={i}
+                  points={pts}
+                  fill="none"
+                  stroke="rgba(56,189,248,0.06)"
+                  strokeWidth="1"
+                  style={{ animationDelay: `${i * 0.3}s` }}
+                />
+              )
+            })}
+          </svg>
         </div>
 
         <div className={styles.heroContent}>
@@ -143,7 +273,10 @@ export default function Home({ globalMute = false, onGlobalMuteChange }) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
           >
-            <span className="label-tag">Digital Realm — Tempest Flow</span>
+            <div className={styles.heroBadge}>
+              <span className={styles.heroBadgeDot} />
+              <span>Digital Realm — Tempest Flow</span>
+            </div>
             <h1 className={styles.heroTitle}>
               <span className={styles.heroTitleWord}>Crxsyruu</span>
               <br />
@@ -189,13 +322,9 @@ export default function Home({ globalMute = false, onGlobalMuteChange }) {
       </section>
 
       <section className={styles.statsBar}>
+        <div className={styles.statsBarLine} />
         <div className={styles.statsInner}>
-          {[
-            { label: 'Total Views', value: totalViews, suffix: '' },
-            { label: 'Edits Created', value: totalEdits, suffix: '' },
-            { label: 'Years Active', value: 3, suffix: '+' },
-            { label: 'Satisfaction', value: 100, suffix: '%' },
-          ].map((stat, i) => (
+          {STAT_ITEMS.map((stat, i) => (
             <motion.div
               key={stat.label}
               className={styles.statItem}
@@ -203,9 +332,10 @@ export default function Home({ globalMute = false, onGlobalMuteChange }) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 + 0.5, duration: 0.5 }}
             >
+              <div className={styles.statIcon}>{stat.icon}</div>
               <span className={styles.statValue}>
-                <AnimatedCounter target={stat.value} />
-                {stat.suffix}
+                <AnimatedCounter target={statValues[i]} />
+                {statSuffixes[i]}
               </span>
               <span className={styles.statLabel}>{stat.label}</span>
             </motion.div>
@@ -291,10 +421,16 @@ export default function Home({ globalMute = false, onGlobalMuteChange }) {
               Based in the digital realm. Specialized in anime edits, AMVs, and
               atmospheric video production. Available for commissions.
             </p>
-            <div className={styles.aboutSkills}>
-              {['Premiere Pro', 'After Effects', 'DaVinci Resolve', 'Audacity'].map(skill => (
-                <span key={skill} className={styles.skill}>{skill}</span>
-              ))}
+            <div className={styles.aboutMeta}>
+              <div className={styles.commissionBadge}>
+                <span className={styles.commissionDot} />
+                Available for Commissions
+              </div>
+              <div className={styles.softwareList}>
+                {['Premiere Pro', 'After Effects', 'DaVinci Resolve', 'Audacity'].map(skill => (
+                  <span key={skill} className={styles.skill}>{skill}</span>
+                ))}
+              </div>
             </div>
           </div>
           <div className={styles.aboutRight}>
@@ -303,12 +439,20 @@ export default function Home({ globalMute = false, onGlobalMuteChange }) {
               <div className={styles.avatarRing2} />
               <div className={styles.avatarRing3} />
               <div className={styles.avatarCore}>
-                <svg width="52" height="52" viewBox="0 0 64 64" fill="none" className={styles.avatarSvg}>
-                  <circle cx="32" cy="32" r="28" stroke="var(--glow-blue)" strokeWidth="1" opacity="0.4"/>
-                  <polygon points="32,12 44,28 38,28 38,52 26,52 26,28 20,28" fill="var(--glow-blue)" opacity="0.9"
-                    className={styles.avatarBolt}/>
-                  <circle cx="32" cy="32" r="6" fill="var(--glow-cyan)"/>
-                  <circle cx="32" cy="32" r="2.5" fill="white"/>
+                <svg width="56" height="56" viewBox="0 0 80 80" fill="none" className={styles.avatarSvg}>
+                  <circle cx="40" cy="40" r="36" stroke="var(--glow-blue)" strokeWidth="0.8" opacity="0.3"/>
+                  <circle cx="40" cy="40" r="26" stroke="var(--glow-teal)" strokeWidth="0.5" opacity="0.2"/>
+                  <circle cx="40" cy="40" r="20" fill="rgba(56,189,248,0.06)" stroke="var(--glow-blue)" strokeWidth="0.8" opacity="0.4"/>
+                  <circle cx="40" cy="40" r="13" fill="rgba(56,189,248,0.12)" className={styles.avatarCoreGlow}/>
+                  <circle cx="40" cy="40" r="8" fill="rgba(45,212,191,0.4)" className={styles.avatarSlime}/>
+                  <circle cx="40" cy="40" r="4.5" fill="var(--glow-cyan)"/>
+                  <circle cx="40" cy="40" r="2" fill="white" opacity="0.9"/>
+                  <line x1="40" y1="4" x2="40" y2="16" stroke="var(--glow-blue)" strokeWidth="0.8" opacity="0.5"/>
+                  <line x1="40" y1="64" x2="40" y2="76" stroke="var(--glow-blue)" strokeWidth="0.8" opacity="0.5"/>
+                  <line x1="4" y1="40" x2="16" y2="40" stroke="var(--glow-teal)" strokeWidth="0.8" opacity="0.4"/>
+                  <line x1="64" y1="40" x2="76" y2="40" stroke="var(--glow-teal)" strokeWidth="0.8" opacity="0.4"/>
+                  <circle cx="40" cy="4" r="2" fill="var(--glow-blue)" opacity="0.6" className={styles.orbitDot1}/>
+                  <circle cx="76" cy="40" r="1.5" fill="var(--glow-cyan)" opacity="0.5" className={styles.orbitDot2}/>
                 </svg>
               </div>
             </div>
@@ -316,16 +460,65 @@ export default function Home({ globalMute = false, onGlobalMuteChange }) {
         </div>
       </FadeSection>
 
+      <FadeSection className={styles.skillSection} delay={0.05}>
+        <div className={styles.skillPanel} ref={skillRef}>
+          <div className={styles.skillPanelBg} />
+          <div className={styles.skillScanLine} style={{ animationPlayState: scanActive ? 'running' : 'paused' }} />
+          <div className={styles.skillHeader}>
+            <div className={styles.skillHeaderLeft}>
+              <div className={styles.skillSystemTag}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
+                </svg>
+                Great Sage
+              </div>
+              <h2 className={styles.skillTitle}>Skill Assessment</h2>
+              <p className={styles.skillSub}>Ability analysis complete. All parameters recorded.</p>
+            </div>
+            <div className={styles.skillHeaderRight}>
+              <div className={styles.skillOverallWrap}>
+                <svg viewBox="0 0 80 80" width="80" height="80" className={styles.skillRing}>
+                  <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(56,189,248,0.1)" strokeWidth="4"/>
+                  <circle
+                    cx="40" cy="40" r="32"
+                    fill="none"
+                    stroke="var(--glow-blue)"
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                    strokeDasharray="201"
+                    strokeDashoffset={scanActive ? 201 * (1 - 0.915) : 201}
+                    transform="rotate(-90 40 40)"
+                    style={{ transition: 'stroke-dashoffset 1.4s cubic-bezier(0.4,0,0.2,1) 0.4s' }}
+                  />
+                </svg>
+                <div className={styles.skillOverallNum}>
+                  <span>91.5</span>
+                  <span className={styles.skillOverallLabel}>AVG</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className={styles.skillGrid}>
+            {SKILLS.map((sk, i) => (
+              <SkillBar key={sk.name} name={sk.name} score={sk.score} color={sk.color} delay={i * 0.12 + 0.2} />
+            ))}
+          </div>
+        </div>
+      </FadeSection>
+
       <FadeSection className={styles.cta} delay={0.05}>
         <div className={styles.ctaPanel}>
           <div className={styles.ctaGlow} />
+          <div className={styles.ctaTopLine} />
+          <div className={styles.ctaCornerTL} />
+          <div className={styles.ctaCornerBR} />
           <div className={styles.ctaLightReflection} />
           <div className={styles.ctaEnergyLines}>
             <EnergyLine style={{ top: '30%', left: 0, width: '60%' }} delay={0} />
             <EnergyLine style={{ bottom: '30%', right: 0, width: '50%', animationDirection: 'reverse' }} delay={0.8} />
           </div>
           <h2 className={styles.ctaTitle}>Explore the Tempest Archive</h2>
-          <p className={styles.ctaSub}>Browse all edits, filter by category, and experience the collection.</p>
+          <p className={styles.ctaSub}>Browse all edits, filter by category, and experience the full collection.</p>
           <Link to="/gallery" className={styles.ctaPrimary} onClick={() => sounds.tap()}>
             Open Archive
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

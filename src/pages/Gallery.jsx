@@ -173,11 +173,20 @@ export default function Gallery({ globalMute = false, onGlobalMuteChange }) {
 
       <div ref={headerRef} className={styles.header}>
         <div className={styles.headerContent}>
-          <div>
-            <span className="label-tag">Tempest Archive — 02</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className={styles.headerLabel}>
+              <span className="label-tag">Tempest Archive — 02</span>
+              <div className={styles.headerLabelDot} />
+            </div>
             <h1 className={styles.title}>The Archive</h1>
+            <div className={styles.titleRule} />
             <p className={styles.sub}>
-              {loading ? 'Loading the archive...' : `${filteredEdits.length} edit${filteredEdits.length !== 1 ? 's' : ''}${activeCategory !== 'All' ? ` in ${activeCategory}` : ''}`}
+              {loading ? 'Loading the archive...' : (
+                <>
+                  <span className={styles.subCount}>{filteredEdits.length}</span>
+                  {` edit${filteredEdits.length !== 1 ? 's' : ''}${activeCategory !== 'All' ? ` in ${activeCategory}` : ''}`}
+                </>
+              )}
             </p>
           </div>
           {isAdmin && (
@@ -252,16 +261,19 @@ export default function Gallery({ globalMute = false, onGlobalMuteChange }) {
       <div className={styles.gridArea}>
         {!isConfigured && !loading && edits.length === 0 ? (
           <div className={styles.emptyState}>
-            <div className={styles.emptyIcon}>
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
-                <polygon points="12,2 2,7 12,12 22,7"/>
-                <polyline points="2,17 12,22 22,17"/>
-                <polyline points="2,12 12,17 22,12"/>
-              </svg>
+            <div className={styles.emptyIconWrap}>
+              <div className={styles.emptyIconRing} />
+              <div className={styles.emptyIconRing2} />
+              <div className={styles.emptyIcon}>
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                  <polygon points="12,2 2,7 12,12 22,7"/>
+                  <polyline points="2,17 12,22 22,17"/>
+                  <polyline points="2,12 12,17 22,12"/>
+                </svg>
+              </div>
             </div>
-            <h3>Firebase Not Configured</h3>
-            <p>Add Firebase credentials in <code>.env</code> to load your archive.</p>
-            <p className={styles.emptyHint}>Demo data will appear here once connected.</p>
+            <h3>Archive Offline</h3>
+            <p>Add Firebase credentials in <code>.env</code> to connect your archive and start displaying edits.</p>
           </div>
         ) : loading ? (
           <div className={styles.loadingGrid}>
@@ -282,14 +294,18 @@ export default function Gallery({ globalMute = false, onGlobalMuteChange }) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <div className={styles.emptyIcon}>
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
-                <circle cx="11" cy="11" r="8"/>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              </svg>
+            <div className={styles.emptyIconWrap}>
+              <div className={styles.emptyIconRing} />
+              <div className={styles.emptyIconRing2} />
+              <div className={styles.emptyIcon}>
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                  <circle cx="11" cy="11" r="8"/>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+              </div>
             </div>
             <h3>No edits found</h3>
-            <p>Try a different search or category filter.</p>
+            <p>Try a different search term or category filter to explore the archive.</p>
             <button className={styles.resetBtn} onClick={() => { sounds.tap(); setSearchQuery(''); setActiveCategory('All') }}>
               Clear Filters
             </button>
