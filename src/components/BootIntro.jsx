@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import styles from './BootIntro.module.css'
 
@@ -16,39 +16,42 @@ export default function BootIntro({ onComplete }) {
   const [lines, setLines] = useState([])
   const [progress, setProgress] = useState(0)
   const [done, setDone] = useState(false)
-  const mounted = useState(() => ({ ran: false }))[0]
+  const hasStarted = useRef(false)
 
   useEffect(() => {
-    if (mounted.ran) return
-    mounted.ran = true
+    if (hasStarted.current) return
+    hasStarted.current = true
 
     const alreadyBooted = sessionStorage.getItem(BOOT_KEY)
-    if (alreadyBooted) { onComplete(); return }
+    if (alreadyBooted) {
+      onComplete()
+      return
+    }
 
-    let frame
     const start = Date.now()
+    let frameId
+
     const animate = () => {
       const elapsed = Date.now() - start
       const p = Math.min((elapsed / 2200) * 100, 100)
       setProgress(p)
-      if (p < 100) { frame = requestAnimationFrame(animate) }
+      if (p < 100) frameId = requestAnimationFrame(animate)
     }
-    frame = requestAnimationFrame(animate)
+    frameId = requestAnimationFrame(animate)
 
-    const timers = []
     BOOT_LINES.forEach(({ text, delay, accent }) => {
-      timers.push(setTimeout(() => {
+      setTimeout(() => {
         setLines(prev => [...prev, { text, accent }])
-      }, delay * 1000))
+      }, delay * 1000)
     })
 
-    timers.push(setTimeout(() => {
+    setTimeout(() => {
+      cancelAnimationFrame(frameId)
+      setProgress(100)
       setDone(true)
       sessionStorage.setItem(BOOT_KEY, '1')
-      setTimeout(onComplete, 700)
-    }, 2600))
-
-    return () => { timers.forEach(clearTimeout); cancelAnimationFrame(frame) }
+      setTimeout(onComplete, 650)
+    }, 2400)
   }, [])
 
   return (
@@ -57,7 +60,7 @@ export default function BootIntro({ onComplete }) {
         <motion.div
           className={styles.boot}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.7, ease: [0.4, 0, 0.2, 1] }}
+          transition={{ duration: 0.65, ease: [0.4, 0, 0.2, 1] }}
         >
           <div className={styles.scanLines} />
           <div className={styles.grid} />
@@ -105,10 +108,7 @@ export default function BootIntro({ onComplete }) {
 
             <div className={styles.progressWrap}>
               <div className={styles.progressTrack}>
-                <motion.div
-                  className={styles.progressFill}
-                  style={{ width: `${progress}%` }}
-                />
+                <div className={styles.progressFill} style={{ width: `${progress}%` }} />
                 <div className={styles.progressGlow} style={{ left: `${progress}%` }} />
               </div>
               <span className={styles.progressPct}>{Math.round(progress)}%</span>
