@@ -70,3 +70,20 @@ export const getThumbnailUrl = (publicId, cloudName = CLOUD_NAME) => {
   if (!cloudName) return ''
   return `https://res.cloudinary.com/${cloudName}/video/upload/so_0,w_640,h_360,c_fill,q_auto/${publicId}.jpg`
 }
+
+const HEIGHT_MAP = {
+  '1080': 'h_1080',
+  '720': 'h_720',
+  '480': 'h_480',
+}
+
+export const getVideoQualityUrl = (url, quality) => {
+  if (!url || quality === 'auto') return url
+  const h = HEIGHT_MAP[quality]
+  if (!h) return url
+  if (!url.includes('res.cloudinary.com')) return url
+  const uploadIdx = url.indexOf('/upload/')
+  if (uploadIdx === -1) return url
+  const after = uploadIdx + 8
+  return `${url.slice(0, after)}${h},c_limit,q_auto/${url.slice(after)}`
+}

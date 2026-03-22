@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import styles from './VideoModal.module.css'
 import { incrementView } from '../hooks/useFirebaseData'
 import { sounds } from '../lib/sound'
 import { session } from '../lib/session'
+import { getVideoQualityUrl } from '../lib/cloudinary'
 
 const timeAgo = (ts) => {
   if (!ts) return ''
@@ -26,6 +27,12 @@ const formatTime = (s) => {
 }
 
 const SPEEDS = [0.5, 1, 1.5, 2]
+const QUALITIES = [
+  { label: 'Auto', value: 'auto' },
+  { label: '1080p', value: '1080' },
+  { label: '720p', value: '720' },
+  { label: '480p', value: '480' },
+]
 
 export default function VideoModal({ edit, onClose, edits = [], onNavigate, globalMute = false, onGlobalMuteChange }) {
   const overlayRef = useRef(null)
@@ -36,6 +43,7 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
   const viewTracked = useRef(false)
   const touchStartX = useRef(null)
   const saveTimer = useRef(null)
+  const qualityChangeTime = useRef(null)
 
   const [buffering, setBuffering] = useState(false)
   const [fullscreen, setFullscreen] = useState(false)
@@ -50,6 +58,8 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
   const [loop, setLoop] = useState(false)
   const [showSpeedMenu, setShowSpeedMenu] = useState(false)
   const [showVolumeSlider, setShowVolumeSlider] = useState(false)
+  const [showQualityMenu, setShowQualityMenu] = useState(false)
+  const [quality, setQuality] = useState('auto')
   const [previewX, setPreviewX] = useState(0)
   const [previewTime, setPreviewTime] = useState(0)
   const [previewVisible, setPreviewVisible] = useState(false)
@@ -57,6 +67,11 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
 
   const controlsTimeout = useRef(null)
   const currentIdx = edits.findIndex(e => e?.id === edit?.id)
+
+  const videoSrc = useMemo(
+    () => getVideoQualityUrl(edit?.videoUrl, quality),
+    [edit?.videoUrl, quality]
+  )
 
   const showControls = useCallback(() => {
     setControlsVisible(true)
@@ -92,6 +107,8 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
     setPlaying(false)
     setSpeed(1)
     setLoop(false)
+    setQuality('auto')
+    setShowQualityMenu(false)
   }, [edit])
 
   useEffect(() => {
@@ -219,6 +236,26 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
     sounds.tap()
   }
 
+  const changeQuality = (q) => {
+    const v = videoRef.current
+    if (!v) return
+    qualityChangeTime.current = v.currentTime
+    const wasPlaying = !v.paused
+    v.pause()
+    setQuality(q)
+    setShowQualityMenu(false)
+    sounds.tap()
+    const onLoaded = () => {
+      const savedT = qualityChangeTime.current
+      if (savedT != null && v.duration && savedT < v.duration) {
+        v.currentTime = savedT
+      }
+      if (wasPlaying) v.play().catch(() => {})
+      qualityChangeTime.current = null
+    }
+    v.addEventListener('loadedmetadata', onLoaded, { once: true })
+  }
+
   const handleVolumeChange = (e) => {
     const v = parseFloat(e.target.value)
     setVolume(v)
@@ -313,6 +350,7 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
   }
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0
+  const currentQualityLabel = QUALITIES.find(q => q.value === quality)?.label || 'Auto'
 
   return (
     <AnimatePresence>
@@ -375,7 +413,7 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
                 <div className={styles.videoContainer} onMouseMove={showControls} onClick={handleVideoClick}>
                   <video
                     ref={videoRef}
-                    src={edit.videoUrl}
+                    src={videoSrc}
                     controls={false}
                     autoPlay
                     playsInline
@@ -499,7 +537,7 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
                         <div className={styles.speedWrap}>
                           <button
                             className={`${styles.ctrlBtn} ${styles.speedBtn}`}
-                            onClick={(e) => { e.stopPropagation(); setShowSpeedMenu(s => !s) }}
+                            onClick={(e) => { e.stopPropagation(); setShowSpeedMenu(s => !s); setShowQualityMenu(false) }}
                             aria-label="Playback speed"
                           >
                             {speed}x
@@ -513,6 +551,39 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
                                   onClick={() => setPlaySpeed(s)}
                                 >
                                   {s}x
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className={styles.qualityWrap}>
+                          <button
+                            className={`${styles.ctrlBtn} ${styles.qualityBtn} ${quality !== 'auto' ? styles.ctrlActive : ''}`}
+                            onClick={(e) => { e.stopPropagation(); setShowQualityMenu(q => !q); setShowSpeedMenu(false) }}
+                            aria-label="Video quality"
+                          >
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                              <rect x="2" y="4" width="20" height="16" rx="2"/>
+                              <path d="M8 10h1.5v4H8M12 14V10h1.5a1.5 1.5 0 0 1 0 3H12"/>
+                            </svg>
+                            <span className={styles.qualityLabel}>{currentQualityLabel}</span>
+                          </button>
+                          {showQualityMenu && (
+                            <div className={styles.qualityMenu} onClick={e => e.stopPropagation()}>
+                              <div className={styles.qualityMenuHeader}>Quality</div>
+                              {QUALITIES.map(q => (
+                                <button
+                                  key={q.value}
+                                  className={`${styles.qualityOption} ${quality === q.value ? styles.qualityActive : ''}`}
+                                  onClick={() => changeQuality(q.value)}
+                                >
+                                  {quality === q.value && (
+                                    <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}>
+                                      <polyline points="20,6 9,17 4,12"/>
+                                    </svg>
+                                  )}
+                                  {q.label}
                                 </button>
                               ))}
                             </div>

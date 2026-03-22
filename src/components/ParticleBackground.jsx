@@ -1,6 +1,10 @@
 import { useEffect, useRef } from 'react'
 import { useDevicePerformance } from '../hooks/useDevicePerformance'
 
+const isMobileDevice = () =>
+  typeof window !== 'undefined' &&
+  window.matchMedia('(pointer: coarse)').matches
+
 export default function ParticleBackground() {
   const canvasRef = useRef(null)
   const animRef = useRef(null)
@@ -9,20 +13,29 @@ export default function ParticleBackground() {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const ctx = canvas.getContext('2d')
+    const ctx = canvas.getContext('2d', { alpha: true })
+    const mobile = isMobileDevice()
 
-    const count = isLowEnd ? 28 : 65
+    const count = isLowEnd ? 20 : mobile ? 32 : 55
+    const drawConnections = !isLowEnd && !mobile
+    const targetFPS = isLowEnd ? 24 : 40
+    const frameInterval = 1000 / targetFPS
+
     let particles = []
-    let width, height
+    let width = 0
+    let height = 0
+    let lastFrameTime = 0
 
     const resize = () => {
       width = canvas.width = window.innerWidth
       height = canvas.height = window.innerHeight
     }
     resize()
-    window.addEventListener('resize', resize)
 
-    const randBetween = (a, b) => a + Math.random() * (b - a)
+    const resizeObserver = new ResizeObserver(resize)
+    resizeObserver.observe(document.body)
+
+    const rand = (a, b) => a + Math.random() * (b - a)
 
     const COLORS = [
       'rgba(56, 189, 248,',
@@ -31,71 +44,82 @@ export default function ParticleBackground() {
       'rgba(129, 140, 248,',
     ]
 
+    const createParticle = () => ({
+      x: rand(0, width || window.innerWidth),
+      y: rand(0, height || window.innerHeight),
+      size: rand(0.7, 2.0),
+      speedX: rand(-0.15, 0.15),
+      speedY: rand(-0.3, -0.07),
+      opacity: rand(0.3, 0.85),
+      opacityDelta: rand(0.003, 0.007) * (Math.random() > 0.5 ? 1 : -1),
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+    })
+
     for (let i = 0; i < count; i++) {
-      particles.push({
-        x: randBetween(0, window.innerWidth),
-        y: randBetween(0, window.innerHeight),
-        size: randBetween(0.8, 2.2),
-        speedX: randBetween(-0.18, 0.18),
-        speedY: randBetween(-0.35, -0.08),
-        opacity: randBetween(0.3, 0.9),
-        opacityDelta: randBetween(0.003, 0.008) * (Math.random() > 0.5 ? 1 : -1),
-        color: COLORS[Math.floor(Math.random() * COLORS.length)],
-      })
+      particles.push(createParticle())
     }
 
-    const draw = () => {
+    const connectionDist = mobile ? 0 : 80
+
+    const draw = (timestamp) => {
+      if (timestamp - lastFrameTime < frameInterval) {
+        animRef.current = requestAnimationFrame(draw)
+        return
+      }
+      lastFrameTime = timestamp
+
       ctx.clearRect(0, 0, width, height)
 
-      particles.forEach((p) => {
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i]
         p.x += p.speedX
         p.y += p.speedY
         p.opacity += p.opacityDelta
-        if (p.opacity <= 0.15 || p.opacity >= 0.95) p.opacityDelta *= -1
-        if (p.y < -10) { p.y = height + 10; p.x = randBetween(0, width) }
+        if (p.opacity <= 0.15 || p.opacity >= 0.9) p.opacityDelta *= -1
+        if (p.y < -10) { p.y = height + 10; p.x = rand(0, width) }
         if (p.x < -10) p.x = width + 10
         if (p.x > width + 10) p.x = -10
 
-        const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 3)
-        gradient.addColorStop(0, `${p.color}${p.opacity})`)
-        gradient.addColorStop(1, `${p.color}0)`)
-
+        const r = p.size * 3
+        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r)
+        g.addColorStop(0, `${p.color}${p.opacity})`)
+        g.addColorStop(1, `${p.color}0)`)
         ctx.beginPath()
-        ctx.arc(p.x, p.y, p.size * 3, 0, Math.PI * 2)
-        ctx.fillStyle = gradient
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2)
+        ctx.fillStyle = g
         ctx.fill()
 
         ctx.beginPath()
-        ctx.arc(p.x, p.y, p.size * 0.6, 0, Math.PI * 2)
-        ctx.fillStyle = `${p.color}${Math.min(p.opacity + 0.3, 1)})`
+        ctx.arc(p.x, p.y, p.size * 0.55, 0, Math.PI * 2)
+        ctx.fillStyle = `${p.color}${Math.min(p.opacity + 0.25, 1)})`
         ctx.fill()
-      })
+      }
 
-      if (!isLowEnd) {
-        particles.forEach((p, i) => {
+      if (drawConnections && connectionDist > 0) {
+        ctx.lineWidth = 0.5
+        for (let i = 0; i < particles.length; i++) {
           for (let j = i + 1; j < particles.length; j++) {
-            const dx = p.x - particles[j].x
-            const dy = p.y - particles[j].y
+            const dx = particles[i].x - particles[j].x
+            const dy = particles[i].y - particles[j].y
             const dist = Math.sqrt(dx * dx + dy * dy)
-            if (dist < 90) {
+            if (dist < connectionDist) {
               ctx.beginPath()
-              ctx.moveTo(p.x, p.y)
+              ctx.moveTo(particles[i].x, particles[i].y)
               ctx.lineTo(particles[j].x, particles[j].y)
-              ctx.strokeStyle = `rgba(56, 189, 248, ${0.06 * (1 - dist / 90)})`
-              ctx.lineWidth = 0.5
+              ctx.strokeStyle = `rgba(56, 189, 248, ${0.055 * (1 - dist / connectionDist)})`
               ctx.stroke()
             }
           }
-        })
+        }
       }
 
       animRef.current = requestAnimationFrame(draw)
     }
 
-    draw()
+    animRef.current = requestAnimationFrame(draw)
 
     return () => {
-      window.removeEventListener('resize', resize)
+      resizeObserver.disconnect()
       if (animRef.current) cancelAnimationFrame(animRef.current)
     }
   }, [isLowEnd])
@@ -110,6 +134,7 @@ export default function ParticleBackground() {
         height: '100%',
         pointerEvents: 'none',
         zIndex: 0,
+        willChange: 'transform',
       }}
     />
   )

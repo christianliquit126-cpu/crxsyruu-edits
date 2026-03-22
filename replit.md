@@ -113,6 +113,20 @@ All design tokens live in `src/styles/globals.css` as CSS variables:
 - Auto-hide controls after 2.8s of inactivity
 - Buffering indicator with spinner
 - View tracking via Firebase `incrementView`
+- **Quality selector:** Auto / 1080p / 720p / 480p via Cloudinary URL transformations (`getVideoQualityUrl` in `cloudinary.js`). Seamless switch that preserves playback position.
+
+### Boot Intro (v2)
+- 4-line text sequence: Initializing / Loading / Syncing / Ready
+- Moving gradient orbs behind the grid (CSS-only, no JS)
+- Spinning logo rings with pulse animation
+- Progress bar with glow dot
+- Click-anywhere-to-skip
+- StrictMode-safe implementation (uses `cancelled` flag pattern)
+
+### Performance Optimizations
+- ParticleBackground: FPS capped (40fps high-end, 24fps low-end), mobile count reduced to 32, connection lines disabled on mobile/low-end, ResizeObserver instead of window resize listener
+- `will-change: transform` on canvas for GPU compositing
+- Performance mode hides animated border, edge lighting, cursor glow, light reflection
 
 ### Navbar Features
 - Hide-on-scroll-down, reveal-on-scroll-up
