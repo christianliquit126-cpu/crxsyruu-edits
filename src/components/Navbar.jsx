@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
+import { useAdmin } from '../context/AdminContext'
 import styles from './Navbar.module.css'
 
 const NAV_ITEMS = [
@@ -36,6 +37,7 @@ const NAV_ITEMS = [
         <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/>
       </svg>
     ),
+    adminOnly: true,
   },
   {
     path: '/stats',
@@ -51,15 +53,27 @@ const NAV_ITEMS = [
   },
 ]
 
-export default function Navbar() {
+export default function Navbar({ performanceModeOn, setPerformanceModeOn }) {
   const [scrolled, setScrolled] = useState(false)
+  const [hidden, setHidden] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [audioPlaying, setAudioPlaying] = useState(false)
   const location = useLocation()
   const audioRef = useRef(null)
+  const lastScrollY = useRef(0)
+  const { isAdmin } = useAdmin()
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 40)
+    const onScroll = () => {
+      const y = window.scrollY
+      setScrolled(y > 40)
+      if (y > lastScrollY.current + 8 && y > 80) {
+        setHidden(true)
+      } else if (y < lastScrollY.current - 8 || y < 80) {
+        setHidden(false)
+      }
+      lastScrollY.current = y
+    }
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
@@ -87,8 +101,10 @@ export default function Navbar() {
     }
   }
 
+  const visibleNavItems = NAV_ITEMS.filter(item => !item.adminOnly || isAdmin)
+
   return (
-    <nav className={`${styles.nav} ${scrolled ? styles.scrolled : ''}`}>
+    <nav className={`${styles.nav} ${scrolled ? styles.scrolled : ''} ${hidden && !menuOpen ? styles.hidden : ''}`}>
       <div className={styles.inner}>
         <NavLink to="/" className={styles.brand}>
           <div className={styles.brandIcon}>
@@ -105,7 +121,7 @@ export default function Navbar() {
         </NavLink>
 
         <div className={`${styles.navLinks} ${menuOpen ? styles.open : ''}`}>
-          {NAV_ITEMS.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}
@@ -132,10 +148,22 @@ export default function Navbar() {
               </svg>
             </span>
             <span className={styles.navLabel}>Admin</span>
+            {isAdmin && <span className={styles.adminDot} />}
           </NavLink>
         </div>
 
         <div className={styles.navRight}>
+          <button
+            className={`${styles.perfBtn} ${performanceModeOn ? styles.perfActive : ''}`}
+            onClick={() => setPerformanceModeOn?.(!performanceModeOn)}
+            aria-label="Toggle performance mode"
+            title={performanceModeOn ? 'Performance mode on' : 'Performance mode off'}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <polyline points="13,2 3,14 12,14 11,22 21,10 12,10"/>
+            </svg>
+          </button>
+
           <button
             className={`${styles.audioBtn} ${audioPlaying ? styles.audioBtnActive : ''}`}
             onClick={toggleAudio}

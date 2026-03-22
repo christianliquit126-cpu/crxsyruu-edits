@@ -50,6 +50,9 @@ export default function UploadForm({ onSuccess }) {
       return
     }
     setError('')
+    if (f.size > 500 * 1024 * 1024) {
+      setError(`Large file detected (${formatSize(f.size)}). Upload may take a while — Ultra HD quality preserved. Ensure good connection.`)
+    }
     setFile(f)
     const url = URL.createObjectURL(f)
     setPreview({ url, type: isVideo ? 'video' : 'image' })

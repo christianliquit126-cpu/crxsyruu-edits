@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import styles from './VideoModal.module.css'
 import { incrementView } from '../hooks/useFirebaseData'
@@ -17,9 +17,23 @@ const formatViews = (n) => {
   return String(n)
 }
 
-export default function VideoModal({ edit, onClose }) {
+export default function VideoModal({ edit, onClose, edits = [], onNavigate }) {
   const overlayRef = useRef(null)
+  const videoRef = useRef(null)
   const viewTracked = useRef(false)
+  const [buffering, setBuffering] = useState(false)
+  const [fullscreen, setFullscreen] = useState(false)
+  const [quality, setQuality] = useState('auto')
+
+  const currentIdx = edits.findIndex(e => e?.id === edit?.id)
+
+  const goNext = useCallback(() => {
+    if (onNavigate && currentIdx < edits.length - 1) onNavigate(edits[currentIdx + 1])
+  }, [onNavigate, currentIdx, edits])
+
+  const goPrev = useCallback(() => {
+    if (onNavigate && currentIdx > 0) onNavigate(edits[currentIdx - 1])
+  }, [onNavigate, currentIdx, edits])
 
   useEffect(() => {
     if (edit && !viewTracked.current) {
@@ -31,7 +45,12 @@ export default function VideoModal({ edit, onClose }) {
 
   useEffect(() => {
     if (!edit) return
-    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose()
+      if (e.key === 'ArrowRight') goNext()
+      if (e.key === 'ArrowLeft') goPrev()
+      if (e.key === 'f' || e.key === 'F') toggleFullscreen()
+    }
     window.addEventListener('keydown', onKey)
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -39,11 +58,29 @@ export default function VideoModal({ edit, onClose }) {
       window.removeEventListener('keydown', onKey)
       document.body.style.overflow = prev
     }
-  }, [edit, onClose])
+  }, [edit, onClose, goNext, goPrev])
 
   const handleBackdrop = (e) => {
     if (e.target === overlayRef.current) onClose()
   }
+
+  const toggleFullscreen = () => {
+    const el = videoRef.current
+    if (!el) return
+    if (!document.fullscreenElement) {
+      el.requestFullscreen?.().then(() => setFullscreen(true)).catch(() => {})
+    } else {
+      document.exitFullscreen?.().then(() => setFullscreen(false)).catch(() => {})
+    }
+  }
+
+  useEffect(() => {
+    const handler = () => setFullscreen(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', handler)
+    return () => document.removeEventListener('fullscreenchange', handler)
+  }, [])
+
+  const videoSrc = edit?.videoUrl
 
   return (
     <AnimatePresence>
@@ -71,22 +108,88 @@ export default function VideoModal({ edit, onClose }) {
               </svg>
             </button>
 
+            {onNavigate && (
+              <>
+                <button
+                  className={`${styles.navBtn} ${styles.navPrev}`}
+                  onClick={goPrev}
+                  disabled={currentIdx <= 0}
+                  aria-label="Previous"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="15,18 9,12 15,6"/>
+                  </svg>
+                </button>
+                <button
+                  className={`${styles.navBtn} ${styles.navNext}`}
+                  onClick={goNext}
+                  disabled={currentIdx >= edits.length - 1}
+                  aria-label="Next"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="9,18 15,12 9,6"/>
+                  </svg>
+                </button>
+              </>
+            )}
+
             <div className={styles.mediaWrap}>
               {edit.videoUrl ? (
-                <video
-                  src={edit.videoUrl}
-                  controls
-                  autoPlay
-                  playsInline
-                  className={styles.video}
-                />
+                <div className={styles.videoContainer}>
+                  <video
+                    ref={videoRef}
+                    src={videoSrc}
+                    controls
+                    autoPlay
+                    playsInline
+                    className={styles.video}
+                    onWaiting={() => setBuffering(true)}
+                    onPlaying={() => setBuffering(false)}
+                    onCanPlay={() => setBuffering(false)}
+                  />
+                  {buffering && (
+                    <div className={styles.bufferingOverlay}>
+                      <div className={styles.bufferingRing}>
+                        <div className={styles.bufferingSpinner} />
+                      </div>
+                      <span className={styles.bufferingText}>Buffering…</span>
+                    </div>
+                  )}
+                  <div className={styles.videoControls}>
+                    <div className={styles.qualitySelector}>
+                      <span className={styles.qualityLabel}>Quality</span>
+                      <select
+                        className={styles.qualitySelect}
+                        value={quality}
+                        onChange={e => setQuality(e.target.value)}
+                      >
+                        <option value="auto">Auto</option>
+                        <option value="hd">HD</option>
+                      </select>
+                    </div>
+                    <button
+                      className={`${styles.fullscreenBtn} ${fullscreen ? styles.fullscreenActive : ''}`}
+                      onClick={toggleFullscreen}
+                      aria-label="Toggle fullscreen"
+                    >
+                      {fullscreen ? (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="8,3 3,3 3,8"/><polyline points="21,8 21,3 16,3"/>
+                          <polyline points="3,16 3,21 8,21"/><polyline points="16,21 21,21 21,16"/>
+                        </svg>
+                      ) : (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="15,3 21,3 21,9"/><polyline points="9,21 3,21 3,15"/>
+                          <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+                        </svg>
+                      )}
+                      {fullscreen ? 'Exit' : 'Fullscreen'}
+                    </button>
+                  </div>
+                </div>
               ) : (
                 <div className={styles.noVideo}>
-                  <img
-                    src={edit.thumbnail}
-                    alt={edit.title}
-                    className={styles.thumbBig}
-                  />
+                  <img src={edit.thumbnail} alt={edit.title} className={styles.thumbBig} />
                   <div className={styles.noVideoOverlay}>
                     <div className={styles.noVideoMsg}>
                       <div className={styles.noVideoIcon}>
@@ -128,9 +231,7 @@ export default function VideoModal({ edit, onClose }) {
                 </div>
               </div>
 
-              {edit.description && (
-                <p className={styles.desc}>{edit.description}</p>
-              )}
+              {edit.description && <p className={styles.desc}>{edit.description}</p>}
 
               <div className={styles.metaRow}>
                 <div className={styles.tags}>
@@ -140,6 +241,14 @@ export default function VideoModal({ edit, onClose }) {
                 </div>
                 <span className={styles.date}>{timeAgo(edit.uploadedAt)}</span>
               </div>
+
+              {onNavigate && (
+                <div className={styles.keyHints}>
+                  <span>← → navigate</span>
+                  <span>ESC close</span>
+                  <span>F fullscreen</span>
+                </div>
+              )}
             </div>
 
             <div className={styles.modalGlow} />

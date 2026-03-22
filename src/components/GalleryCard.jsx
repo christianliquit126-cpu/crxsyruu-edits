@@ -1,6 +1,17 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import styles from './GalleryCard.module.css'
+
+const CATEGORY_COLORS = {
+  AMV: 'var(--glow-blue)',
+  Cinematic: 'var(--glow-purple)',
+  Action: 'var(--glow-pink)',
+  Lofi: 'var(--glow-teal)',
+  ASMR: 'var(--glow-cyan)',
+  Glitch: 'var(--glow-pink)',
+  Montage: 'var(--glow-blue)',
+  'Short Film': 'var(--glow-purple)',
+}
 
 const formatViews = (n) => {
   if (!n) return '0'
@@ -21,15 +32,49 @@ const timeAgo = (ts) => {
   return `${d}d ago`
 }
 
-export default function GalleryCard({ edit, onOpen, featured = false }) {
+function HighlightText({ text, query }) {
+  if (!query || !text) return <>{text}</>
+  const idx = text.toLowerCase().indexOf(query.toLowerCase())
+  if (idx === -1) return <>{text}</>
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className={styles.highlight}>{text.slice(idx, idx + query.length)}</mark>
+      {text.slice(idx + query.length)}
+    </>
+  )
+}
+
+export default function GalleryCard({ edit, onOpen, featured = false, searchQuery = '' }) {
   const [tilted, setTilted] = useState({ x: 0, y: 0 })
   const [hovered, setHovered] = useState(false)
   const [glowPos, setGlowPos] = useState({ x: 50, y: 50 })
   const [ripples, setRipples] = useState([])
   const [videoReady, setVideoReady] = useState(false)
+  const [isHolding, setIsHolding] = useState(false)
+  const [holdActive, setHoldActive] = useState(false)
+  const [buffering, setBuffering] = useState(false)
   const cardRef = useRef(null)
   const videoRef = useRef(null)
+  const holdTimerRef = useRef(null)
   const isMobile = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
+  const catColor = CATEGORY_COLORS[edit.category] || 'var(--glow-blue)'
+
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || !edit.videoUrl) return
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting && !holdActive) {
+          video.pause()
+          video.currentTime = 0
+        }
+      },
+      { threshold: 0.1 }
+    )
+    obs.observe(cardRef.current)
+    return () => obs.disconnect()
+  }, [edit.videoUrl, holdActive])
 
   const handleMouseMove = useCallback((e) => {
     if (isMobile) return
@@ -56,13 +101,52 @@ export default function GalleryCard({ edit, onOpen, featured = false }) {
   const handleMouseLeave = useCallback(() => {
     setTilted({ x: 0, y: 0 })
     setHovered(false)
-    if (videoRef.current) {
+    if (videoRef.current && !holdActive) {
       videoRef.current.pause()
       videoRef.current.currentTime = 0
     }
-  }, [])
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current)
+      holdTimerRef.current = null
+    }
+    setIsHolding(false)
+    setHoldActive(false)
+  }, [holdActive])
+
+  const startHold = useCallback((e) => {
+    if (!edit.videoUrl) return
+    holdTimerRef.current = setTimeout(() => {
+      setHoldActive(true)
+      setIsHolding(true)
+      if (videoRef.current) {
+        videoRef.current.muted = true
+        videoRef.current.play().catch(() => {})
+      }
+    }, 250)
+  }, [edit.videoUrl])
+
+  const endHold = useCallback((e) => {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current)
+      holdTimerRef.current = null
+    }
+    if (holdActive) {
+      if (videoRef.current) {
+        videoRef.current.pause()
+        if (!hovered) videoRef.current.currentTime = 0
+      }
+      setHoldActive(false)
+      setIsHolding(false)
+      e?.preventDefault()
+      e?.stopPropagation()
+      return true
+    }
+    setIsHolding(false)
+    return false
+  }, [holdActive, hovered])
 
   const handleClick = useCallback((e) => {
+    if (endHold(e)) return
     const card = cardRef.current
     if (!card) return
     const rect = card.getBoundingClientRect()
@@ -72,22 +156,27 @@ export default function GalleryCard({ edit, onOpen, featured = false }) {
     setRipples(prev => [...prev, { id, x, y }])
     setTimeout(() => setRipples(prev => prev.filter(r => r.id !== id)), 600)
     onOpen && onOpen(edit)
-  }, [edit, onOpen])
+  }, [edit, onOpen, endHold])
 
   return (
     <motion.div
       ref={cardRef}
-      className={`${styles.card} ${featured ? styles.featured : ''}`}
+      className={`${styles.card} ${featured ? styles.featured : ''} ${holdActive ? styles.holding : ''}`}
       style={{
         transform: isMobile
           ? undefined
           : `perspective(900px) rotateX(${tilted.x}deg) rotateY(${tilted.y}deg)`,
         '--glow-x': `${glowPos.x}%`,
         '--glow-y': `${glowPos.y}%`,
+        '--cat-color': catColor,
       }}
       onMouseMove={handleMouseMove}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onMouseDown={startHold}
+      onMouseUp={endHold}
+      onTouchStart={startHold}
+      onTouchEnd={endHold}
       onClick={handleClick}
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
@@ -104,6 +193,7 @@ export default function GalleryCard({ edit, onOpen, featured = false }) {
       ))}
 
       <div className={styles.cursorGlow} />
+      <div className={styles.edgeLighting} />
 
       {featured && (
         <div className={styles.featuredBadge}>
@@ -114,24 +204,40 @@ export default function GalleryCard({ edit, onOpen, featured = false }) {
         </div>
       )}
 
+      {holdActive && (
+        <div className={styles.holdIndicator}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="5,3 19,12 5,21"/>
+          </svg>
+          <span>Hold to preview</span>
+        </div>
+      )}
+
       <div className={styles.thumbWrap}>
         <img
           src={edit.thumbnail}
           alt={edit.title}
-          className={`${styles.thumb} ${hovered && edit.videoUrl ? styles.thumbHidden : ''}`}
+          className={`${styles.thumb} ${(hovered || holdActive) && edit.videoUrl ? styles.thumbHidden : ''}`}
           loading="lazy"
         />
         {edit.videoUrl && (
           <video
             ref={videoRef}
             src={edit.videoUrl}
-            className={`${styles.hoverVideo} ${hovered && videoReady ? styles.hoverVideoVisible : ''}`}
+            className={`${styles.hoverVideo} ${((hovered && videoReady) || holdActive) ? styles.hoverVideoVisible : ''}`}
             muted
             loop
             playsInline
             preload="none"
             onCanPlay={() => setVideoReady(true)}
+            onWaiting={() => setBuffering(true)}
+            onPlaying={() => setBuffering(false)}
           />
+        )}
+        {buffering && (hovered || holdActive) && (
+          <div className={styles.bufferingRing}>
+            <div className={styles.bufferingSpinner} />
+          </div>
         )}
         <div className={styles.thumbOverlay}>
           <div className={styles.playBtn}>
@@ -160,12 +266,18 @@ export default function GalleryCard({ edit, onOpen, featured = false }) {
 
       <div className={styles.body}>
         <div className={styles.meta}>
-          <span className={styles.category}>{edit.category}</span>
+          <span className={styles.category} style={{ color: catColor, borderColor: `color-mix(in srgb, ${catColor} 30%, transparent)`, boxShadow: `0 0 8px color-mix(in srgb, ${catColor} 20%, transparent)` }}>
+            {edit.category}
+          </span>
           <span className={styles.time}>{timeAgo(edit.uploadedAt)}</span>
         </div>
-        <h3 className={styles.title}>{edit.title}</h3>
+        <h3 className={styles.title}>
+          <HighlightText text={edit.title} query={searchQuery} />
+        </h3>
         {edit.description && (
-          <p className={styles.desc}>{edit.description}</p>
+          <p className={styles.desc}>
+            <HighlightText text={edit.description} query={searchQuery} />
+          </p>
         )}
         <div className={styles.footer}>
           <div className={styles.views}>
@@ -177,7 +289,9 @@ export default function GalleryCard({ edit, onOpen, featured = false }) {
           </div>
           <div className={styles.tags}>
             {(edit.tags || []).slice(0, 2).map((tag) => (
-              <span key={tag} className={styles.tag}>{tag}</span>
+              <span key={tag} className={styles.tag} style={{ '--tag-color': catColor }}>
+                <HighlightText text={tag} query={searchQuery} />
+              </span>
             ))}
           </div>
         </div>

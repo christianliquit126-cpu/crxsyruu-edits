@@ -6,16 +6,34 @@ import { isConfigured } from '../lib/firebase'
 import GalleryCard from '../components/GalleryCard'
 import VideoModal from '../components/VideoModal'
 import { CATEGORIES } from '../lib/demoData'
+import { useAdmin } from '../context/AdminContext'
 import styles from './Gallery.module.css'
+
+const CATEGORY_COLORS = {
+  AMV: 'var(--glow-blue)',
+  Cinematic: 'var(--glow-purple)',
+  Action: 'var(--glow-pink)',
+  Lofi: 'var(--glow-teal)',
+  ASMR: 'var(--glow-cyan)',
+  Glitch: 'var(--glow-pink)',
+  Montage: 'var(--glow-blue)',
+  'Short Film': 'var(--glow-purple)',
+}
 
 const SORT_OPTIONS = [
   { value: 'latest', label: 'Latest' },
   { value: 'popular', label: 'Most Viewed' },
+  { value: 'trending', label: 'Trending' },
   { value: 'featured', label: 'Featured First' },
 ]
 
+function SkeletonCard() {
+  return <div className={styles.skeleton}><div className={styles.skeletonShimmer} /></div>
+}
+
 export default function Gallery() {
   const { edits, loading } = useEdits()
+  const { isAdmin } = useAdmin()
   const [selectedEdit, setSelectedEdit] = useState(null)
   const [category, setCategory] = useState('All')
   const [sort, setSort] = useState('latest')
@@ -35,7 +53,18 @@ export default function Gallery() {
     }
     if (sort === 'popular') result.sort((a, b) => (b.views || 0) - (a.views || 0))
     else if (sort === 'featured') result.sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0))
-    else result.sort((a, b) => b.uploadedAt - a.uploadedAt)
+    else if (sort === 'trending') {
+      const now = Date.now()
+      result.sort((a, b) => {
+        const ageA = (now - (a.uploadedAt || 0)) / 86400000
+        const ageB = (now - (b.uploadedAt || 0)) / 86400000
+        const scoreA = (a.views || 0) / Math.max(ageA + 1, 1)
+        const scoreB = (b.views || 0) / Math.max(ageB + 1, 1)
+        return scoreB - scoreA
+      })
+    } else {
+      result.sort((a, b) => b.uploadedAt - a.uploadedAt)
+    }
     return result
   }, [edits, category, sort, search])
 
@@ -49,6 +78,8 @@ export default function Gallery() {
     const cats = new Set(edits.map(e => e.category))
     return CATEGORIES.filter(c => c === 'All' || cats.has(c))
   }, [edits])
+
+  const handleNavigate = (edit) => setSelectedEdit(edit)
 
   return (
     <div className={styles.page}>
@@ -103,7 +134,7 @@ export default function Gallery() {
                       <line x1="21" y1="21" x2="16.65" y2="16.65"/>
                     </svg>
                     <span>{s.title}</span>
-                    <span className={styles.suggestionCat}>{s.category}</span>
+                    <span className={styles.suggestionCat} style={{ color: CATEGORY_COLORS[s.category] || 'var(--glow-blue)' }}>{s.category}</span>
                   </button>
                 ))}
               </motion.div>
@@ -113,16 +144,25 @@ export default function Gallery() {
 
         <div className={styles.filterRow}>
           <div className={styles.categories}>
-            {activeCategories.map(cat => (
-              <button
-                key={cat}
-                className={`${styles.catBtn} ${category === cat ? styles.active : ''}`}
-                onClick={() => setCategory(cat)}
-              >
-                {cat}
-                {category === cat && <span className={styles.catGlow} />}
-              </button>
-            ))}
+            {activeCategories.map(cat => {
+              const catColor = CATEGORY_COLORS[cat] || 'var(--glow-blue)'
+              return (
+                <button
+                  key={cat}
+                  className={`${styles.catBtn} ${category === cat ? styles.active : ''}`}
+                  onClick={() => setCategory(cat)}
+                  style={category === cat ? {
+                    '--active-color': catColor,
+                    borderColor: catColor,
+                    color: catColor,
+                    boxShadow: `0 0 12px color-mix(in srgb, ${catColor} 25%, transparent)`,
+                  } : {}}
+                >
+                  {cat}
+                  {category === cat && <span className={styles.catGlow} />}
+                </button>
+              )
+            })}
           </div>
 
           <select
@@ -144,13 +184,22 @@ export default function Gallery() {
             {category !== 'All' && ` in ${category}`}
             {search && ` matching "${search}"`}
           </span>
+          {sort === 'trending' && (
+            <span className={styles.trendingTag}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                <polyline points="23,6 13.5,15.5 8.5,10.5 1,18"/>
+                <polyline points="17,6 23,6 23,12"/>
+              </svg>
+              Trending
+            </span>
+          )}
         </div>
       )}
 
       {loading ? (
         <div className={styles.loadingGrid}>
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className={styles.skeleton} />
+            <SkeletonCard key={i} />
           ))}
         </div>
       ) : filtered.length === 0 ? (
@@ -158,31 +207,29 @@ export default function Gallery() {
           {edits.length === 0 ? (
             <>
               <div className={styles.emptyIcon}>
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0.8" opacity="0.3">
+                <div className={styles.emptyIconGlow} />
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0.8" opacity="0.5">
                   <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
                   <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
                 </svg>
               </div>
-              <p>The archive is empty</p>
-              {isConfigured ? (
-                <>
-                  <span>Upload your first edit to get started</span>
-                  <Link to="/upload" className={styles.emptyAction}>
-                    Upload First Edit
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="16,16 12,12 8,16"/>
-                      <line x1="12" y1="12" x2="12" y2="21"/>
-                      <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/>
-                    </svg>
-                  </Link>
-                </>
-              ) : (
-                <>
-                  <span>Configure Firebase credentials to load live data</span>
-                  <div className={styles.configNote}>
-                    Add <code>VITE_FIREBASE_*</code> environment variables to connect your database
-                  </div>
-                </>
+              <p className={styles.emptyTitle}>Archive Uninitialized</p>
+              <span className={styles.emptySubtitle}>
+                {isConfigured ? '[ No edits detected in the system ]' : '[ Awaiting Firebase connection ]'}
+              </span>
+              {isConfigured && isAdmin ? (
+                <Link to="/upload" className={styles.emptyAction}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="16,16 12,12 8,16"/>
+                    <line x1="12" y1="12" x2="12" y2="21"/>
+                    <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/>
+                  </svg>
+                  Initialize Archive
+                </Link>
+              ) : !isConfigured && (
+                <div className={styles.configNote}>
+                  Add <code>VITE_FIREBASE_*</code> environment variables to connect
+                </div>
               )}
             </>
           ) : (
@@ -191,8 +238,8 @@ export default function Gallery() {
                 <circle cx="11" cy="11" r="8"/>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"/>
               </svg>
-              <p>No edits found</p>
-              <span>Try adjusting your search or filters</span>
+              <p className={styles.emptyTitle}>No Signal Detected</p>
+              <span className={styles.emptySubtitle}>[ Adjust parameters and retry ]</span>
               {(search || category !== 'All') && (
                 <button className={styles.resetBtn} onClick={() => { setSearch(''); setCategory('All') }}>
                   Clear filters
@@ -210,13 +257,19 @@ export default function Gallery() {
                 edit={edit}
                 featured={edit.featured}
                 onOpen={setSelectedEdit}
+                searchQuery={search}
               />
             ))}
           </AnimatePresence>
         </motion.div>
       )}
 
-      <VideoModal edit={selectedEdit} onClose={() => setSelectedEdit(null)} />
+      <VideoModal
+        edit={selectedEdit}
+        onClose={() => setSelectedEdit(null)}
+        edits={filtered}
+        onNavigate={handleNavigate}
+      />
     </div>
   )
 }

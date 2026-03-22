@@ -204,12 +204,6 @@
 
 .sortSelect:focus { border-color: var(--tempest-border-active); }
 
-.results {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 16px 24px 0;
-}
-
 .resultCount {
   font-size: 0.73rem;
   color: var(--text-muted);
@@ -236,16 +230,51 @@
 }
 
 .skeleton {
+  position: relative;
   aspect-ratio: 16/10;
   border-radius: var(--radius-lg);
+  background: var(--tempest-panel);
+  border: 1px solid var(--tempest-border);
+  overflow: hidden;
+}
+
+.skeletonShimmer {
+  position: absolute;
+  inset: 0;
   background: linear-gradient(
     90deg,
-    rgba(56, 189, 248, 0.04) 0%,
-    rgba(56, 189, 248, 0.09) 50%,
-    rgba(56, 189, 248, 0.04) 100%
+    transparent 0%,
+    rgba(56, 189, 248, 0.08) 40%,
+    rgba(125, 211, 252, 0.12) 50%,
+    rgba(56, 189, 248, 0.08) 60%,
+    transparent 100%
   );
-  background-size: 200% 100%;
-  animation: energy-flow 1.8s ease infinite;
+  background-size: 300% 100%;
+  animation: energy-flow 2s ease infinite;
+}
+
+.results {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 16px 24px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.trendingTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-display);
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--glow-teal);
+  background: rgba(45, 212, 191, 0.07);
+  border: 1px solid rgba(45, 212, 191, 0.22);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
 }
 
 .empty {
@@ -257,12 +286,33 @@
   text-align: center;
 }
 
-.emptyIcon { margin-bottom: 4px; }
+.emptyIcon {
+  position: relative;
+  margin-bottom: 4px;
+}
 
-.empty p {
+.emptyIconGlow {
+  position: absolute;
+  inset: -20px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(56, 189, 248, 0.08) 0%, transparent 70%);
+  animation: pulse-glow-strong 3s ease-in-out infinite;
+}
+
+.emptyTitle {
   font-family: var(--font-display);
   font-size: 1.1rem;
   color: var(--text-secondary);
+  letter-spacing: 0.05em;
+}
+
+.emptySubtitle {
+  font-size: 0.78rem;
+  color: var(--glow-blue);
+  opacity: 0.6;
+  font-family: var(--font-display);
+  letter-spacing: 0.08em;
+  max-width: 340px;
 }
 
 .empty span {

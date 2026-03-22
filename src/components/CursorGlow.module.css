@@ -1,0 +1,33 @@
+.dot {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--glow-cyan);
+  box-shadow: 0 0 10px var(--glow-cyan), 0 0 20px rgba(125, 211, 252, 0.4);
+  pointer-events: none;
+  z-index: 99999;
+  will-change: transform;
+  transition: opacity 0.3s;
+}
+
+.trail {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.06) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 99998;
+  will-change: transform;
+  transition: opacity 0.3s;
+}
+
+@media (pointer: coarse) {
+  .dot, .trail { display: none; }
+}

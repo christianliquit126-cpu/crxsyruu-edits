@@ -1,0 +1,30 @@
+.track {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 1001;
+  background: transparent;
+  pointer-events: none;
+}
+
+.fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--glow-blue), var(--glow-cyan), var(--glow-teal));
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.7);
+  transition: width 0.1s linear;
+  border-radius: 0 2px 2px 0;
+}
+
+.glow {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--glow-cyan);
+  box-shadow: 0 0 10px var(--glow-cyan), 0 0 20px rgba(125, 211, 252, 0.5);
+  transition: left 0.1s linear;
+}

@@ -47,8 +47,20 @@ export const useStats = () => {
   return stats
 }
 
+const hasViewedThisSession = (editId) => {
+  try {
+    const key = `viewed_${editId}`
+    if (sessionStorage.getItem(key)) return true
+    sessionStorage.setItem(key, '1')
+    return false
+  } catch {
+    return false
+  }
+}
+
 export const incrementView = async (editId) => {
   if (!isConfigured || !database) return
+  if (hasViewedThisSession(editId)) return
   try {
     const viewRef = ref(database, `edits/${editId}/views`)
     await runTransaction(viewRef, (current) => (current || 0) + 1)
