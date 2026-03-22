@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import styles from './GalleryCard.module.css'
+import { sounds } from '../lib/sound'
 
 const CATEGORY_COLORS = {
   AMV: 'var(--glow-blue)',
@@ -45,7 +46,7 @@ function HighlightText({ text, query }) {
   )
 }
 
-export default function GalleryCard({ edit, onOpen, featured = false, searchQuery = '' }) {
+export default function GalleryCard({ edit, onOpen, featured = false, searchQuery = '', focused = false }) {
   const [tilted, setTilted] = useState({ x: 0, y: 0 })
   const [hovered, setHovered] = useState(false)
   const [glowPos, setGlowPos] = useState({ x: 50, y: 50 })
@@ -54,9 +55,11 @@ export default function GalleryCard({ edit, onOpen, featured = false, searchQuer
   const [isHolding, setIsHolding] = useState(false)
   const [holdActive, setHoldActive] = useState(false)
   const [buffering, setBuffering] = useState(false)
+  const [videoProgress, setVideoProgress] = useState(0)
   const cardRef = useRef(null)
   const videoRef = useRef(null)
   const holdTimerRef = useRef(null)
+  const soundHoverRef = useRef(false)
   const isMobile = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
   const catColor = CATEGORY_COLORS[edit.category] || 'var(--glow-blue)'
 
@@ -68,13 +71,24 @@ export default function GalleryCard({ edit, onOpen, featured = false, searchQuer
         if (!entry.isIntersecting && !holdActive) {
           video.pause()
           video.currentTime = 0
+          setVideoProgress(0)
         }
       },
       { threshold: 0.1 }
     )
-    obs.observe(cardRef.current)
+    if (cardRef.current) obs.observe(cardRef.current)
     return () => obs.disconnect()
   }, [edit.videoUrl, holdActive])
+
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+    const onTimeUpdate = () => {
+      if (video.duration) setVideoProgress((video.currentTime / video.duration) * 100)
+    }
+    video.addEventListener('timeupdate', onTimeUpdate)
+    return () => video.removeEventListener('timeupdate', onTimeUpdate)
+  }, [])
 
   const handleMouseMove = useCallback((e) => {
     if (isMobile) return
@@ -83,7 +97,7 @@ export default function GalleryCard({ edit, onOpen, featured = false, searchQuer
     const rect = card.getBoundingClientRect()
     const cx = ((e.clientX - rect.left) / rect.width - 0.5) * 2
     const cy = ((e.clientY - rect.top) / rect.height - 0.5) * 2
-    setTilted({ x: cy * -6, y: cx * 6 })
+    setTilted({ x: cy * -7, y: cx * 7 })
     setGlowPos({
       x: ((e.clientX - rect.left) / rect.width) * 100,
       y: ((e.clientY - rect.top) / rect.height) * 100,
@@ -93,6 +107,10 @@ export default function GalleryCard({ edit, onOpen, featured = false, searchQuer
   const handleMouseEnter = useCallback(() => {
     if (isMobile) return
     setHovered(true)
+    if (!soundHoverRef.current) {
+      soundHoverRef.current = true
+      sounds.hover()
+    }
     if (videoRef.current && edit.videoUrl) {
       videoRef.current.play().catch(() => {})
     }
@@ -101,9 +119,11 @@ export default function GalleryCard({ edit, onOpen, featured = false, searchQuer
   const handleMouseLeave = useCallback(() => {
     setTilted({ x: 0, y: 0 })
     setHovered(false)
+    soundHoverRef.current = false
     if (videoRef.current && !holdActive) {
       videoRef.current.pause()
       videoRef.current.currentTime = 0
+      setVideoProgress(0)
     }
     if (holdTimerRef.current) {
       clearTimeout(holdTimerRef.current)
@@ -113,11 +133,12 @@ export default function GalleryCard({ edit, onOpen, featured = false, searchQuer
     setHoldActive(false)
   }, [holdActive])
 
-  const startHold = useCallback((e) => {
+  const startHold = useCallback(() => {
     if (!edit.videoUrl) return
     holdTimerRef.current = setTimeout(() => {
       setHoldActive(true)
       setIsHolding(true)
+      sounds.videoPlay()
       if (videoRef.current) {
         videoRef.current.muted = true
         videoRef.current.play().catch(() => {})
@@ -154,14 +175,18 @@ export default function GalleryCard({ edit, onOpen, featured = false, searchQuer
     const y = (e.clientY || e.touches?.[0]?.clientY || rect.top + rect.height / 2) - rect.top
     const id = Date.now()
     setRipples(prev => [...prev, { id, x, y }])
-    setTimeout(() => setRipples(prev => prev.filter(r => r.id !== id)), 600)
+    setTimeout(() => setRipples(prev => prev.filter(r => r.id !== id)), 700)
+    sounds.tap()
     onOpen && onOpen(edit)
   }, [edit, onOpen, endHold])
+
+  const showVideo = (hovered && videoReady) || holdActive
+  const showProgress = (showVideo || holdActive) && videoProgress > 0
 
   return (
     <motion.div
       ref={cardRef}
-      className={`${styles.card} ${featured ? styles.featured : ''} ${holdActive ? styles.holding : ''}`}
+      className={`${styles.card} ${featured ? styles.featured : ''} ${holdActive ? styles.holding : ''} ${focused ? styles.focused : ''}`}
       style={{
         transform: isMobile
           ? undefined
@@ -194,6 +219,8 @@ export default function GalleryCard({ edit, onOpen, featured = false, searchQuer
 
       <div className={styles.cursorGlow} />
       <div className={styles.edgeLighting} />
+      <div className={styles.lightReflection} />
+      <div className={styles.shadowDepth} />
 
       {featured && (
         <div className={styles.featuredBadge}>
@@ -209,7 +236,7 @@ export default function GalleryCard({ edit, onOpen, featured = false, searchQuer
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <polygon points="5,3 19,12 5,21"/>
           </svg>
-          <span>Hold to preview</span>
+          <span>Previewing</span>
         </div>
       )}
 
@@ -217,14 +244,14 @@ export default function GalleryCard({ edit, onOpen, featured = false, searchQuer
         <img
           src={edit.thumbnail}
           alt={edit.title}
-          className={`${styles.thumb} ${(hovered || holdActive) && edit.videoUrl ? styles.thumbHidden : ''}`}
+          className={`${styles.thumb} ${showVideo && edit.videoUrl ? styles.thumbHidden : ''}`}
           loading="lazy"
         />
         {edit.videoUrl && (
           <video
             ref={videoRef}
             src={edit.videoUrl}
-            className={`${styles.hoverVideo} ${((hovered && videoReady) || holdActive) ? styles.hoverVideoVisible : ''}`}
+            className={`${styles.hoverVideo} ${showVideo ? styles.hoverVideoVisible : ''}`}
             muted
             loop
             playsInline
@@ -256,10 +283,19 @@ export default function GalleryCard({ edit, onOpen, featured = false, searchQuer
         <div className={styles.thumbGlow} />
         {edit.videoUrl && (
           <div className={styles.videoIndicator}>
-            <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor">
-              <polygon points="5,3 19,12 5,21"/>
-            </svg>
-            Video
+            {holdActive ? (
+              <span className={styles.playingDot} />
+            ) : (
+              <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="5,3 19,12 5,21"/>
+              </svg>
+            )}
+            {holdActive ? 'Playing' : 'Video'}
+          </div>
+        )}
+        {showProgress && (
+          <div className={styles.videoProgress}>
+            <div className={styles.videoProgressFill} style={{ width: `${videoProgress}%` }} />
           </div>
         )}
       </div>

@@ -14,6 +14,7 @@ import Stats from './pages/Stats'
 import Admin from './pages/Admin'
 import styles from './App.module.css'
 import { useDevicePerformance } from './hooks/useDevicePerformance'
+import { initSound } from './lib/sound'
 
 function PageTransition({ children }) {
   const location = useLocation()
@@ -37,12 +38,18 @@ function AppInner({ performanceModeOn, setPerformanceModeOn }) {
   const { isLowEnd } = useDevicePerformance()
   const perf = performanceModeOn || isLowEnd
 
+  useEffect(() => {
+    const unlock = () => { initSound(); document.removeEventListener('click', unlock) }
+    document.addEventListener('click', unlock, { once: true })
+  }, [])
+
   return (
     <div className={styles.app} data-perf={perf ? 'low' : 'high'}>
       <ScrollProgress />
       <CursorGlow disabled={perf} />
       <ParticleBackground />
       <div className={styles.ambientGradient} />
+      {!perf && <div className={styles.noiseOverlay} />}
       <Navbar performanceModeOn={performanceModeOn} setPerformanceModeOn={setPerformanceModeOn} />
       <main className={styles.main}>
         <Routes>

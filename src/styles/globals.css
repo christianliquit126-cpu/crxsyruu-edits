@@ -9,8 +9,10 @@
   --tempest-deep: #060d1a;
   --tempest-surface: #0a1628;
   --tempest-panel: #0d1f38;
+  --tempest-glass: rgba(13, 31, 56, 0.72);
   --tempest-border: rgba(56, 189, 248, 0.12);
   --tempest-border-active: rgba(56, 189, 248, 0.35);
+  --tempest-border-strong: rgba(56, 189, 248, 0.55);
 
   --glow-blue: #38bdf8;
   --glow-cyan: #7dd3fc;
@@ -22,6 +24,13 @@
   --glow-idle: rgba(56, 189, 248, 0.08);
   --glow-hover: rgba(56, 189, 248, 0.22);
   --glow-active: rgba(56, 189, 248, 0.45);
+
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.35);
+  --shadow-md: 0 4px 20px rgba(0,0,0,0.5), 0 1px 4px rgba(0,0,0,0.3);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4), 0 0 1px rgba(56,189,248,0.08);
+  --shadow-xl: 0 16px 64px rgba(0,0,0,0.7), 0 4px 16px rgba(0,0,0,0.5), 0 0 2px rgba(56,189,248,0.1);
+  --shadow-glow: 0 0 24px rgba(56,189,248,0.18), 0 0 48px rgba(56,189,248,0.08);
+  --shadow-glow-strong: 0 0 40px rgba(56,189,248,0.35), 0 0 80px rgba(56,189,248,0.15);
 
   --text-primary: rgba(255, 255, 255, 0.92);
   --text-secondary: rgba(180, 215, 245, 0.72);
@@ -36,10 +45,13 @@
   --radius-md: 8px;
   --radius-lg: 14px;
   --radius-xl: 20px;
+  --radius-2xl: 28px;
+  --radius-pill: 999px;
 
   --transition-fast: 180ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-smooth: 320ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-slow: 600ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-spring: 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
 
   --nav-height: 64px;
 }
@@ -133,10 +145,23 @@ input:focus, textarea:focus, select:focus {
 }
 
 .glow-panel {
-  background: var(--tempest-panel);
+  background: var(--tempest-glass);
   border: 1px solid var(--tempest-border);
   border-radius: var(--radius-lg);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: var(--shadow-md);
+}
+
+.glass-panel {
+  background: rgba(10, 22, 40, 0.65);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border: 1px solid rgba(56, 189, 248, 0.13);
+  border-radius: var(--radius-xl);
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.03) inset,
+    var(--shadow-lg);
 }
 
 .label-tag {
@@ -249,6 +274,50 @@ input:focus, textarea:focus, select:focus {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 0%, 100% 100%, 50% 50%;
+  }
+  33% {
+    background-position: 30% 20%, 70% 80%, 20% 70%;
+  }
+  66% {
+    background-position: 70% 60%, 30% 40%, 80% 20%;
+  }
+  100% {
+    background-position: 0% 0%, 100% 100%, 50% 50%;
+  }
+}
+
+@keyframes light-reflection {
+  0% {
+    transform: translateX(-120%) skewX(-18deg);
+    opacity: 0;
+  }
+  10% { opacity: 0.7; }
+  90% { opacity: 0.7; }
+  100% {
+    transform: translateX(220%) skewX(-18deg);
+    opacity: 0;
+  }
+}
+
+@keyframes live-dot {
+  0%, 100% { transform: scale(1); opacity: 1; box-shadow: 0 0 6px var(--glow-teal); }
+  50% { transform: scale(1.4); opacity: 0.7; box-shadow: 0 0 14px var(--glow-teal); }
+}
+
+@keyframes slide-fade-in {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes gradient-rotate {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 @media (max-width: 768px) {

@@ -5,15 +5,29 @@
   position: relative;
 }
 
+.noiseOverlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.028;
+  background-image:
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+  background-size: 220px 220px;
+  background-repeat: repeat;
+}
+
 .ambientGradient {
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  background:
-    radial-gradient(ellipse 80% 50% at 20% 10%, rgba(56, 189, 248, 0.04) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 40% at 80% 80%, rgba(45, 212, 191, 0.03) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 50% at 50% 50%, rgba(129, 140, 248, 0.02) 0%, transparent 70%);
+  background-size: 200% 200%, 200% 200%, 200% 200%;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 20% 10%, rgba(56, 189, 248, 0.055) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 80%, rgba(45, 212, 191, 0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 50% at 50% 50%, rgba(129, 140, 248, 0.03) 0%, transparent 70%);
+  animation: gradient-shift 18s ease infinite;
 }
 
 .main {
@@ -62,6 +76,11 @@
   letter-spacing: 0.1em;
   color: var(--text-muted);
   cursor: default;
+  transition: color var(--transition-fast);
+}
+
+.footerItem:hover {
+  color: var(--text-secondary);
 }
 
 .footerCopy {

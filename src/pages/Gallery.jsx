@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useEdits } from '../hooks/useFirebaseData'
@@ -8,6 +8,14 @@ import VideoModal from '../components/VideoModal'
 import { CATEGORIES } from '../lib/demoData'
 import { useAdmin } from '../context/AdminContext'
 import styles from './Gallery.module.css'
+import { sounds } from '../lib/sound'
+import { useScrollFade } from '../hooks/useScrollFade'
+
+const SORT_OPTIONS = [
+  { value: 'newest', label: 'Newest' },
+  { value: 'views', label: 'Most Viewed' },
+  { value: 'oldest', label: 'Oldest' },
+]
 
 const CATEGORY_COLORS = {
   AMV: 'var(--glow-blue)',
@@ -20,254 +28,223 @@ const CATEGORY_COLORS = {
   'Short Film': 'var(--glow-purple)',
 }
 
-const SORT_OPTIONS = [
-  { value: 'latest', label: 'Latest' },
-  { value: 'popular', label: 'Most Viewed' },
-  { value: 'trending', label: 'Trending' },
-  { value: 'featured', label: 'Featured First' },
-]
-
-function SkeletonCard() {
-  return <div className={styles.skeleton}><div className={styles.skeletonShimmer} /></div>
+function FadeSection({ children, className }) {
+  const ref = useScrollFade()
+  return <div ref={ref} className={className}>{children}</div>
 }
 
 export default function Gallery() {
   const { edits, loading } = useEdits()
   const { isAdmin } = useAdmin()
   const [selectedEdit, setSelectedEdit] = useState(null)
-  const [category, setCategory] = useState('All')
-  const [sort, setSort] = useState('latest')
-  const [search, setSearch] = useState('')
-  const [searchFocused, setSearchFocused] = useState(false)
+  const [activeCategory, setActiveCategory] = useState('All')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortBy, setSortBy] = useState('newest')
+  const [focusedId, setFocusedId] = useState(null)
+  const searchRef = useRef(null)
+  const headerRef = useScrollFade()
 
-  const filtered = useMemo(() => {
-    let result = [...edits]
-    if (category !== 'All') result = result.filter(e => e.category === category)
-    if (search.trim()) {
-      const q = search.toLowerCase()
+  const categories = useMemo(() => ['All', ...CATEGORIES], [])
+
+  const filteredEdits = useMemo(() => {
+    let result = edits
+    if (activeCategory !== 'All') result = result.filter(e => e.category === activeCategory)
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
       result = result.filter(e =>
         e.title?.toLowerCase().includes(q) ||
         e.description?.toLowerCase().includes(q) ||
+        e.category?.toLowerCase().includes(q) ||
         (e.tags || []).some(t => t.toLowerCase().includes(q))
       )
     }
-    if (sort === 'popular') result.sort((a, b) => (b.views || 0) - (a.views || 0))
-    else if (sort === 'featured') result.sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0))
-    else if (sort === 'trending') {
-      const now = Date.now()
-      result.sort((a, b) => {
-        const ageA = (now - (a.uploadedAt || 0)) / 86400000
-        const ageB = (now - (b.uploadedAt || 0)) / 86400000
-        const scoreA = (a.views || 0) / Math.max(ageA + 1, 1)
-        const scoreB = (b.views || 0) / Math.max(ageB + 1, 1)
-        return scoreB - scoreA
-      })
-    } else {
-      result.sort((a, b) => b.uploadedAt - a.uploadedAt)
+    switch (sortBy) {
+      case 'views': return [...result].sort((a, b) => (b.views || 0) - (a.views || 0))
+      case 'oldest': return [...result].sort((a, b) => (a.uploadedAt || 0) - (b.uploadedAt || 0))
+      default: return [...result].sort((a, b) => (b.uploadedAt || 0) - (a.uploadedAt || 0))
     }
-    return result
-  }, [edits, category, sort, search])
+  }, [edits, activeCategory, searchQuery, sortBy])
 
-  const suggestions = useMemo(() => {
-    if (!search.trim() || !searchFocused || search.length < 2) return []
-    const q = search.toLowerCase()
-    return edits.filter(e => e.title?.toLowerCase().includes(q)).slice(0, 5)
-  }, [search, searchFocused, edits])
+  const handleOpenEdit = useCallback((edit) => {
+    sounds.open()
+    setSelectedEdit(edit)
+  }, [])
 
-  const activeCategories = useMemo(() => {
-    const cats = new Set(edits.map(e => e.category))
-    return CATEGORIES.filter(c => c === 'All' || cats.has(c))
-  }, [edits])
+  const handleNavigate = useCallback((edit) => {
+    setSelectedEdit(edit)
+  }, [])
 
-  const handleNavigate = (edit) => setSelectedEdit(edit)
+  const handleCategoryChange = (cat) => {
+    sounds.tap()
+    setActiveCategory(cat)
+    setFocusedId(null)
+  }
+
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value)
+  }
+
+  const handleSearchClear = () => {
+    sounds.tap()
+    setSearchQuery('')
+    searchRef.current?.focus()
+  }
+
+  const handleSortChange = (val) => {
+    sounds.tap()
+    setSortBy(val)
+  }
 
   return (
     <div className={styles.page}>
-      <div className={styles.header}>
+      <div className={styles.headerGlow} />
+      <div className={styles.headerGlow2} />
+
+      <div ref={headerRef} className={styles.header}>
         <div className={styles.headerContent}>
-          <span className="label-tag">Tempest Archive — 02</span>
-          <h1 className={styles.title}>The Archive</h1>
-          <p className={styles.subtitle}>All edits, catalogued and ready for viewing.</p>
+          <div>
+            <span className="label-tag">Tempest Archive — 02</span>
+            <h1 className={styles.title}>The Archive</h1>
+            <p className={styles.sub}>
+              {loading ? 'Loading the archive...' : `${filteredEdits.length} edit${filteredEdits.length !== 1 ? 's' : ''}${activeCategory !== 'All' ? ` in ${activeCategory}` : ''}`}
+            </p>
+          </div>
+          {isAdmin && (
+            <Link to="/upload" className={styles.uploadBtn} onClick={() => sounds.tap()}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="16,16 12,12 8,16"/>
+                <line x1="12" y1="12" x2="12" y2="21"/>
+                <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/>
+              </svg>
+              Upload
+            </Link>
+          )}
         </div>
-        <div className={styles.headerGlow} />
       </div>
 
-      <div className={styles.controls}>
+      <FadeSection className={styles.controls}>
         <div className={styles.searchWrap}>
           <svg className={styles.searchIcon} width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8"/>
             <line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
           <input
-            className={styles.searchInput}
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            onFocus={() => setSearchFocused(true)}
-            onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
-            placeholder="Search the archive..."
-            autoComplete="off"
+            ref={searchRef}
+            type="search"
+            className={styles.search}
+            placeholder="Search edits, categories, tags..."
+            value={searchQuery}
+            onChange={handleSearchChange}
+            onFocus={() => sounds.hover()}
           />
-          {search && (
-            <button className={styles.searchClear} onClick={() => setSearch('')} aria-label="Clear search">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          {searchQuery && (
+            <button className={styles.searchClear} onClick={handleSearchClear} aria-label="Clear search">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <line x1="18" y1="6" x2="6" y2="18"/>
                 <line x1="6" y1="6" x2="18" y2="18"/>
               </svg>
             </button>
           )}
-          <AnimatePresence>
-            {suggestions.length > 0 && (
-              <motion.div
-                className={styles.suggestions}
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-              >
-                {suggestions.map(s => (
-                  <button
-                    key={s.id}
-                    className={styles.suggestion}
-                    onMouseDown={() => { setSearch(s.title); setSearchFocused(false) }}
-                  >
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="11" cy="11" r="8"/>
-                      <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                    </svg>
-                    <span>{s.title}</span>
-                    <span className={styles.suggestionCat} style={{ color: CATEGORY_COLORS[s.category] || 'var(--glow-blue)' }}>{s.category}</span>
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
 
-        <div className={styles.filterRow}>
-          <div className={styles.categories}>
-            {activeCategories.map(cat => {
-              const catColor = CATEGORY_COLORS[cat] || 'var(--glow-blue)'
-              return (
-                <button
-                  key={cat}
-                  className={`${styles.catBtn} ${category === cat ? styles.active : ''}`}
-                  onClick={() => setCategory(cat)}
-                  style={category === cat ? {
-                    '--active-color': catColor,
-                    borderColor: catColor,
-                    color: catColor,
-                    boxShadow: `0 0 12px color-mix(in srgb, ${catColor} 25%, transparent)`,
-                  } : {}}
-                >
-                  {cat}
-                  {category === cat && <span className={styles.catGlow} />}
-                </button>
-              )
-            })}
-          </div>
-
-          <select
-            className={styles.sortSelect}
-            value={sort}
-            onChange={e => setSort(e.target.value)}
-          >
-            {SORT_OPTIONS.map(o => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {!loading && (
-        <div className={styles.results}>
-          <span className={styles.resultCount}>
-            {filtered.length} edit{filtered.length !== 1 ? 's' : ''}
-            {category !== 'All' && ` in ${category}`}
-            {search && ` matching "${search}"`}
-          </span>
-          {sort === 'trending' && (
-            <span className={styles.trendingTag}>
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
-                <polyline points="23,6 13.5,15.5 8.5,10.5 1,18"/>
-                <polyline points="17,6 23,6 23,12"/>
-              </svg>
-              Trending
-            </span>
-          )}
-        </div>
-      )}
-
-      {loading ? (
-        <div className={styles.loadingGrid}>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <SkeletonCard key={i} />
+        <div className={styles.sortWrap}>
+          {SORT_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              className={`${styles.sortBtn} ${sortBy === opt.value ? styles.sortActive : ''}`}
+              onClick={() => handleSortChange(opt.value)}
+            >
+              {opt.label}
+            </button>
           ))}
         </div>
-      ) : filtered.length === 0 ? (
-        <div className={styles.empty}>
-          {edits.length === 0 ? (
-            <>
-              <div className={styles.emptyIcon}>
-                <div className={styles.emptyIconGlow} />
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0.8" opacity="0.5">
-                  <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-                  <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
-                </svg>
-              </div>
-              <p className={styles.emptyTitle}>Archive Uninitialized</p>
-              <span className={styles.emptySubtitle}>
-                {isConfigured ? '[ No edits detected in the system ]' : '[ Awaiting Firebase connection ]'}
-              </span>
-              {isConfigured && isAdmin ? (
-                <Link to="/upload" className={styles.emptyAction}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="16,16 12,12 8,16"/>
-                    <line x1="12" y1="12" x2="12" y2="21"/>
-                    <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/>
-                  </svg>
-                  Initialize Archive
-                </Link>
-              ) : !isConfigured && (
-                <div className={styles.configNote}>
-                  Add <code>VITE_FIREBASE_*</code> environment variables to connect
-                </div>
+      </FadeSection>
+
+      <FadeSection className={styles.cats}>
+        <div className={styles.catScroll}>
+          {categories.map(cat => (
+            <button
+              key={cat}
+              className={`${styles.catBtn} ${activeCategory === cat ? styles.catActive : ''}`}
+              style={activeCategory === cat ? { '--cat-c': CATEGORY_COLORS[cat] || 'var(--glow-blue)' } : {}}
+              onClick={() => handleCategoryChange(cat)}
+            >
+              {cat}
+              {activeCategory === cat && (
+                <span className={styles.catActiveDot} style={{ background: CATEGORY_COLORS[cat] || 'var(--glow-blue)' }} />
               )}
-            </>
-          ) : (
-            <>
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" opacity="0.3">
+            </button>
+          ))}
+        </div>
+      </FadeSection>
+
+      <div className={styles.gridArea}>
+        {!isConfigured && !loading && edits.length === 0 ? (
+          <div className={styles.emptyState}>
+            <div className={styles.emptyIcon}>
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                <polygon points="12,2 2,7 12,12 22,7"/>
+                <polyline points="2,17 12,22 22,17"/>
+                <polyline points="2,12 12,17 22,12"/>
+              </svg>
+            </div>
+            <h3>Firebase Not Configured</h3>
+            <p>Add Firebase credentials in <code>.env</code> to load your archive.</p>
+            <p className={styles.emptyHint}>Demo data will appear here once connected.</p>
+          </div>
+        ) : loading ? (
+          <div className={styles.loadingGrid}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className={styles.skeleton}>
+                <div className={styles.skeletonThumb} />
+                <div className={styles.skeletonBody}>
+                  <div className={styles.skeletonLine} style={{ width: '40%' }} />
+                  <div className={styles.skeletonLine} style={{ width: '80%' }} />
+                  <div className={styles.skeletonLine} style={{ width: '60%' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredEdits.length === 0 ? (
+          <motion.div
+            className={styles.emptyState}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <div className={styles.emptyIcon}>
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
                 <circle cx="11" cy="11" r="8"/>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"/>
               </svg>
-              <p className={styles.emptyTitle}>No Signal Detected</p>
-              <span className={styles.emptySubtitle}>[ Adjust parameters and retry ]</span>
-              {(search || category !== 'All') && (
-                <button className={styles.resetBtn} onClick={() => { setSearch(''); setCategory('All') }}>
-                  Clear filters
-                </button>
-              )}
-            </>
-          )}
-        </div>
-      ) : (
-        <motion.div className={styles.grid} layout>
-          <AnimatePresence>
-            {filtered.map((edit) => (
-              <GalleryCard
-                key={edit.id}
-                edit={edit}
-                featured={edit.featured}
-                onOpen={setSelectedEdit}
-                searchQuery={search}
-              />
-            ))}
+            </div>
+            <h3>No edits found</h3>
+            <p>Try a different search or category filter.</p>
+            <button className={styles.resetBtn} onClick={() => { sounds.tap(); setSearchQuery(''); setActiveCategory('All') }}>
+              Clear Filters
+            </button>
+          </motion.div>
+        ) : (
+          <AnimatePresence mode="sync">
+            <div className={styles.grid}>
+              {filteredEdits.map((edit) => (
+                <GalleryCard
+                  key={edit.id}
+                  edit={edit}
+                  featured={edit.featured}
+                  onOpen={handleOpenEdit}
+                  searchQuery={searchQuery}
+                  focused={focusedId === edit.id}
+                />
+              ))}
+            </div>
           </AnimatePresence>
-        </motion.div>
-      )}
+        )}
+      </div>
 
       <VideoModal
         edit={selectedEdit}
         onClose={() => setSelectedEdit(null)}
-        edits={filtered}
+        edits={filteredEdits}
         onNavigate={handleNavigate}
       />
     </div>

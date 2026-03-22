@@ -6,6 +6,8 @@ import { isConfigured } from '../lib/firebase'
 import GalleryCard from '../components/GalleryCard'
 import VideoModal from '../components/VideoModal'
 import styles from './Home.module.css'
+import { useScrollFade } from '../hooks/useScrollFade'
+import { sounds } from '../lib/sound'
 
 const AnimatedCounter = ({ target, duration = 2000 }) => {
   const [count, setCount] = useState(0)
@@ -39,6 +41,19 @@ const EnergyLine = ({ style, delay = 0 }) => (
   <div className={styles.energyLine} style={{ ...style, animationDelay: `${delay}s` }} />
 )
 
+function FadeSection({ children, className, style, delay = 0 }) {
+  const ref = useScrollFade()
+  return (
+    <div
+      ref={ref}
+      className={className}
+      style={{ ...style, transitionDelay: `${delay}s` }}
+    >
+      {children}
+    </div>
+  )
+}
+
 export default function Home() {
   const { edits } = useEdits()
   const stats = useStats()
@@ -48,10 +63,16 @@ export default function Home() {
   const totalViews = stats.totalViews || edits.reduce((s, e) => s + (e.views || 0), 0)
   const totalEdits = stats.totalEdits || edits.length
 
+  const handleOpenEdit = (edit) => {
+    sounds.open()
+    setSelectedEdit(edit)
+  }
+
   return (
     <div className={styles.page}>
       <section className={styles.hero}>
         <div className={styles.heroGlow} />
+        <div className={styles.heroGlow2} />
         <div className={styles.heroOrbs}>
           <div className={styles.orb1} />
           <div className={styles.orb2} />
@@ -66,9 +87,9 @@ export default function Home() {
 
         <div className={styles.heroContent}>
           <motion.div
-            initial={{ opacity: 0, y: 36 }}
+            initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.75, ease: [0.4, 0, 0.2, 1] }}
+            transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
           >
             <span className="label-tag">Digital Realm — Tempest Flow</span>
             <h1 className={styles.heroTitle}>
@@ -80,7 +101,7 @@ export default function Home() {
               Crafting motion with the precision of the Great Sage.
             </p>
             <div className={styles.heroCTA}>
-              <Link to="/gallery" className={styles.ctaPrimary}>
+              <Link to="/gallery" className={styles.ctaPrimary} onClick={() => sounds.tap()}>
                 Enter the Archive
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="5" y1="12" x2="19" y2="12"/>
@@ -88,10 +109,11 @@ export default function Home() {
                 </svg>
                 <span className={styles.btnGlow} />
               </Link>
-              <Link to="/upload" className={styles.ctaSecondary}>Upload Edit</Link>
+              <Link to="/upload" className={styles.ctaSecondary} onClick={() => sounds.tap()}>Upload Edit</Link>
             </div>
           </motion.div>
         </div>
+        <div className={styles.heroBottomGrad} />
       </section>
 
       <section className={styles.statsBar}>
@@ -119,7 +141,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className={styles.featured}>
+      <FadeSection className={styles.featured}>
         <div className={styles.sectionHeader}>
           <div>
             <div className={styles.sectionTag}>
@@ -128,7 +150,7 @@ export default function Home() {
             </div>
             <h2 className={styles.sectionTitle}>Highlighted Edits</h2>
           </div>
-          <Link to="/gallery" className={styles.seeAll}>
+          <Link to="/gallery" className={styles.seeAll} onClick={() => sounds.tap()}>
             View Full Archive
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="5" y1="12" x2="19" y2="12"/>
@@ -144,7 +166,7 @@ export default function Home() {
                 key={edit.id}
                 edit={edit}
                 featured={i === 0}
-                onOpen={setSelectedEdit}
+                onOpen={handleOpenEdit}
               />
             ))}
           </div>
@@ -166,7 +188,7 @@ export default function Home() {
                 <span>Add Firebase credentials to load live data from your archive</span>
               </>
             )}
-            <Link to="/upload" className={styles.emptyBtn}>
+            <Link to="/upload" className={styles.emptyBtn} onClick={() => sounds.tap()}>
               Upload First Edit
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="16,16 12,12 8,16"/>
@@ -176,9 +198,9 @@ export default function Home() {
             </Link>
           </div>
         )}
-      </section>
+      </FadeSection>
 
-      <section className={styles.about}>
+      <FadeSection className={styles.about} delay={0.05}>
         <div className={styles.aboutPanel}>
           <div className={styles.aboutLeft}>
             <span className="label-tag">About the Creator</span>
@@ -214,18 +236,19 @@ export default function Home() {
             </div>
           </div>
         </div>
-      </section>
+      </FadeSection>
 
-      <section className={styles.cta}>
+      <FadeSection className={styles.cta} delay={0.05}>
         <div className={styles.ctaPanel}>
           <div className={styles.ctaGlow} />
+          <div className={styles.ctaLightReflection} />
           <div className={styles.ctaEnergyLines}>
             <EnergyLine style={{ top: '30%', left: 0, width: '60%' }} delay={0} />
             <EnergyLine style={{ bottom: '30%', right: 0, width: '50%', animationDirection: 'reverse' }} delay={0.8} />
           </div>
           <h2 className={styles.ctaTitle}>Explore the Tempest Archive</h2>
           <p className={styles.ctaSub}>Browse all edits, filter by category, and experience the collection.</p>
-          <Link to="/gallery" className={styles.ctaPrimary}>
+          <Link to="/gallery" className={styles.ctaPrimary} onClick={() => sounds.tap()}>
             Open Archive
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
@@ -234,7 +257,7 @@ export default function Home() {
             <span className={styles.btnGlow} />
           </Link>
         </div>
-      </section>
+      </FadeSection>
 
       <VideoModal edit={selectedEdit} onClose={() => setSelectedEdit(null)} />
     </div>

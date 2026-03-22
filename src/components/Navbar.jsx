@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAdmin } from '../context/AdminContext'
 import styles from './Navbar.module.css'
+import { sounds } from '../lib/sound'
 
 const NAV_ITEMS = [
   {
@@ -53,6 +54,40 @@ const NAV_ITEMS = [
   },
 ]
 
+function MagneticBtn({ children, className, onClick, ...props }) {
+  const ref = useRef(null)
+
+  const handleMouseMove = (e) => {
+    const el = ref.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const cx = rect.left + rect.width / 2
+    const cy = rect.top + rect.height / 2
+    const dx = (e.clientX - cx) * 0.28
+    const dy = (e.clientY - cy) * 0.28
+    el.style.transform = `translate(${dx}px, ${dy}px)`
+  }
+
+  const handleMouseLeave = () => {
+    const el = ref.current
+    if (!el) return
+    el.style.transform = ''
+  }
+
+  return (
+    <button
+      ref={ref}
+      className={className}
+      onClick={onClick}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      {...props}
+    >
+      {children}
+    </button>
+  )
+}
+
 export default function Navbar({ performanceModeOn, setPerformanceModeOn }) {
   const [scrolled, setScrolled] = useState(false)
   const [hidden, setHidden] = useState(false)
@@ -92,6 +127,7 @@ export default function Navbar({ performanceModeOn, setPerformanceModeOn }) {
   }, [menuOpen])
 
   const toggleAudio = () => {
+    sounds.toggle()
     if (!audioRef.current) return
     if (audioPlaying) {
       audioRef.current.pause()
@@ -106,7 +142,7 @@ export default function Navbar({ performanceModeOn, setPerformanceModeOn }) {
   return (
     <nav className={`${styles.nav} ${scrolled ? styles.scrolled : ''} ${hidden && !menuOpen ? styles.hidden : ''}`}>
       <div className={styles.inner}>
-        <NavLink to="/" className={styles.brand}>
+        <NavLink to="/" className={styles.brand} onClick={() => sounds.nav()}>
           <div className={styles.brandIcon}>
             <svg width="22" height="22" viewBox="0 0 64 64" fill="none">
               <circle cx="32" cy="32" r="28" stroke="var(--glow-blue)" strokeWidth="1.5" opacity="0.5"/>
@@ -129,6 +165,7 @@ export default function Navbar({ performanceModeOn, setPerformanceModeOn }) {
               className={({ isActive }) =>
                 `${styles.navItem} ${isActive ? styles.active : ''}`
               }
+              onClick={() => sounds.nav()}
             >
               <span className={styles.navIcon}>{item.icon}</span>
               <span className={styles.navLabel}>{item.label}</span>
@@ -141,6 +178,7 @@ export default function Navbar({ performanceModeOn, setPerformanceModeOn }) {
             className={({ isActive }) =>
               `${styles.navItem} ${styles.adminLink} ${isActive ? styles.active : ''}`
             }
+            onClick={() => sounds.nav()}
           >
             <span className={styles.navIcon}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -153,22 +191,22 @@ export default function Navbar({ performanceModeOn, setPerformanceModeOn }) {
         </div>
 
         <div className={styles.navRight}>
-          <button
+          <MagneticBtn
             className={`${styles.perfBtn} ${performanceModeOn ? styles.perfActive : ''}`}
-            onClick={() => setPerformanceModeOn?.(!performanceModeOn)}
+            onClick={() => { sounds.toggle(); setPerformanceModeOn?.(!performanceModeOn) }}
             aria-label="Toggle performance mode"
-            title={performanceModeOn ? 'Performance mode on' : 'Performance mode off'}
+            title={performanceModeOn ? 'Performance mode on — reduced effects' : 'Performance mode off — full effects'}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <polyline points="13,2 3,14 12,14 11,22 21,10 12,10"/>
             </svg>
-          </button>
+          </MagneticBtn>
 
-          <button
+          <MagneticBtn
             className={`${styles.audioBtn} ${audioPlaying ? styles.audioBtnActive : ''}`}
             onClick={toggleAudio}
             aria-label={audioPlaying ? 'Pause music' : 'Play ambient music'}
-            title={audioPlaying ? 'Pause music' : 'Play ambient music'}
+            title={audioPlaying ? 'Pause ambient music' : 'Play ambient music'}
           >
             {audioPlaying ? (
               <div className={styles.visualizer}>
@@ -185,11 +223,11 @@ export default function Navbar({ performanceModeOn, setPerformanceModeOn }) {
                 <circle cx="18" cy="16" r="3"/>
               </svg>
             )}
-          </button>
+          </MagneticBtn>
 
           <button
             className={`${styles.hamburger} ${menuOpen ? styles.open : ''}`}
-            onClick={() => setMenuOpen(!menuOpen)}
+            onClick={() => { sounds.tap(); setMenuOpen(!menuOpen) }}
             aria-label="Toggle navigation"
           >
             <span /><span /><span />

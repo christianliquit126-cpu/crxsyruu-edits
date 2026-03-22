@@ -16,27 +16,32 @@ A production-ready, anime-inspired video editor portfolio for **Crxsyruu**, them
 
 ```
 src/
-├── App.jsx              # Root layout (BrowserRouter, Navbar, footer, ParticleBackground)
-├── App.module.css
+├── App.jsx              # Root layout (BrowserRouter, Navbar, footer, ParticleBackground, sound init)
+├── App.module.css       # Ambient gradient, noise overlay, footer styles
 ├── main.jsx             # React entry point
 ├── styles/
-│   └── globals.css      # Design tokens (CSS vars), reset, animations, global utility classes
+│   └── globals.css      # Design tokens, reset, 20+ animations, global utility classes
 ├── lib/
 │   ├── firebase.js      # Firebase init (gracefully degrades to demo mode if unconfigured)
 │   ├── cloudinary.js    # Cloudinary upload + URL helpers (degrades to demo mode)
-│   └── demoData.js      # CATEGORIES list only (demo edits/stats removed)
+│   ├── demoData.js      # CATEGORIES list only (demo edits/stats removed)
+│   └── sound.js         # Web Audio API synthetic sound system (tap, hover, open, close, nav, toggle, swipe, videoPlay)
 ├── hooks/
-│   ├── useFirebaseData.js   # Firebase listeners (useEdits, useStats, incrementView, pushEdit, deleteEdit, toggleFeatured, updateEdit)
-│   └── useDevicePerformance.js  # Low-end device detection (reduces animations)
+│   ├── useFirebaseData.js      # Firebase listeners (useEdits, useStats, incrementView, pushEdit, deleteEdit, toggleFeatured, updateEdit)
+│   ├── useDevicePerformance.js # Low-end device detection (reduces animations)
+│   └── useScrollFade.js        # IntersectionObserver scroll-fade-in hook (useScrollFade, useScrollFadeAll)
 ├── components/
-│   ├── Navbar.jsx / .module.css        # Fixed navbar with active route highlighting
+│   ├── Navbar.jsx / .module.css        # Fixed navbar — hide-on-scroll, magnetic buttons, audio visualizer, performance toggle
 │   ├── ParticleBackground.jsx          # Canvas particle system with connection lines
-│   ├── GalleryCard.jsx / .module.css   # 3D tilt card with cursor glow, hover effects
-│   ├── VideoModal.jsx / .module.css    # Focus mode modal for viewing edits
+│   ├── GalleryCard.jsx / .module.css   # 3D tilt, light reflection, hold-to-preview, ripple, focus mode, progress bar
+│   ├── VideoModal.jsx / .module.css    # Custom controls, cinematic mode, swipe nav, keyboard shortcuts, auto-pause
+│   ├── ScrollProgress.jsx              # Top scroll progress bar
+│   ├── BootIntro.jsx                   # Animated boot sequence on first load
+│   ├── CursorGlow.jsx                  # Custom cursor glow effect
 │   └── UploadForm.jsx / .module.css    # Drag-and-drop upload with progress states
 └── pages/
-    ├── Home.jsx / .module.css          # Tempest Flow — hero, stats bar, featured edits, about
-    ├── Gallery.jsx / .module.css       # Tempest Archive — filter, search, sort, grid
+    ├── Home.jsx / .module.css          # Tempest Flow — hero orbs, stats bar, featured edits, about, CTA
+    ├── Gallery.jsx / .module.css       # Tempest Archive — filter, search, sort, swipe navigation
     ├── Upload.jsx / .module.css        # Tempest Upload — upload form with sidebar
     ├── Stats.jsx / .module.css         # Tempest Stats — analytics, ranked edits, activity
     └── Admin.jsx / .module.css         # Admin panel (password-gated, delete edits)
@@ -45,10 +50,80 @@ src/
 ## Design System
 
 All design tokens live in `src/styles/globals.css` as CSS variables:
-- **Colors:** `--tempest-void`, `--tempest-deep`, `--tempest-surface`, `--tempest-panel`
-- **Glows:** `--glow-blue`, `--glow-cyan`, `--glow-teal`, `--glow-purple`
-- **Typography:** `--font-display` (Orbitron/Rajdhani), `--font-ui` (Rajdhani), `--font-body` (Inter)
+- **Colors:** `--tempest-void`, `--tempest-deep`, `--tempest-surface`, `--tempest-panel`, `--tempest-glass`
+- **Glows:** `--glow-blue`, `--glow-cyan`, `--glow-teal`, `--glow-purple`, `--glow-pink`
 - **Glow intensities:** `--glow-idle` / `--glow-hover` / `--glow-active`
+- **Shadows:** `--shadow-sm/md/lg/xl`, `--shadow-glow`, `--shadow-glow-strong`
+- **Typography:** `--font-display` (Orbitron/Rajdhani), `--font-ui` (Rajdhani), `--font-body` (Inter)
+- **Radius:** `--radius-sm/md/lg/xl/2xl/pill`
+- **Transitions:** `--transition-fast/smooth/slow/spring`
+
+## Visual Feature System
+
+### Glassmorphism
+- `backdrop-filter: blur(18-24px) saturate(1.4)` on cards/panels/modal
+- `rgba` background at 0.65-0.72 opacity
+- `.glass-panel` and `.glow-panel` utility classes available globally
+
+### Animated Gradient Background
+- Three layered radial gradients in `App.module.css` `.ambientGradient`
+- Animated with `gradient-shift` 18s keyframe cycle
+- Disabled in performance mode
+
+### Noise Texture Overlay
+- Inline SVG noise filter applied as CSS background
+- Opacity 0.028 — subtle grain texture
+- Disabled in performance mode
+
+### Light Reflection Animation
+- `light-reflection` keyframe sweeps a skewed highlight across cards and panels
+- Triggers on card hover (2.2s)
+- Continuous on CTA section
+
+### Edge Lighting
+- Inset box-shadow on cards: blue/cyan/teal gradient edges on hover
+
+### Sound System (`src/lib/sound.js`)
+- Web Audio API — no external files required
+- Lazy-initialized on first user interaction
+- Sounds: `tap`, `hover`, `open`, `close`, `nav`, `toggle`, `swipe`, `videoPlay`
+- User preference stored in `localStorage` (`tempest_sound`)
+- Performance mode stores in `localStorage` (`tempest_perf`)
+
+### GalleryCard Features
+- 3D perspective tilt (desktop only) based on mouse position
+- Cursor-relative glow spotlight effect
+- Hover: light reflection sweep, video autoplay, scale effect
+- Hold (250ms): hold-to-preview mode — plays video with live indicator
+- Click ripple effect from exact click position
+- Custom video progress bar
+- Focus mode styling (`focused` prop)
+- Category-specific color theming
+
+### VideoModal Features
+- Custom video progress bar with click-to-seek and drag thumb
+- Mute toggle with SVG icons (no emoji)
+- Cinematic mode (hides info panel, letterbox feel) — toggle with `C` key
+- Fullscreen mode — toggle with `F` key
+- Swipe left/right for navigation between edits
+- Arrow key navigation
+- Auto-hide controls after 2.8s of inactivity
+- Buffering indicator with spinner
+- View tracking via Firebase `incrementView`
+
+### Navbar Features
+- Hide-on-scroll-down, reveal-on-scroll-up
+- Glassmorphism background when scrolled
+- Magnetic buttons (subtle mouse attraction effect)
+- Audio visualizer bars when ambient music plays
+- Performance mode toggle (lightning bolt icon)
+- Mobile: slide-in menu from right with overlay
+
+### Scroll Fade Animations
+- `useScrollFade()` hook: wraps any element in IntersectionObserver fade-in
+- Applied to Featured, About, CTA sections on Home
+- Applied to header and controls on Gallery
+- Smooth 0.55s cubic-bezier reveal
 
 ## Environment Variables
 
@@ -72,25 +147,13 @@ VITE_CLOUDINARY_UPLOAD_PRESET=
 VITE_ADMIN_PASSWORD=
 ```
 
-Without these, the app shows **empty states** with configuration guidance — no placeholder/demo data is injected.
+Without these, the app shows **empty states** with configuration guidance — no placeholder/demo data.
 
-## Audio System
+## Audio
 
-The navbar includes an ambient music toggle. Place your audio file at:
-`/public/audio/tempest-ambient.mp3`
-The player degrades silently if the file does not exist.
-
-## Key Features (v2)
-
-- **Mobile scroll:** `-webkit-overflow-scrolling: touch`, proper `overflow-y: auto` on html/body, 16px inputs to prevent iOS zoom
-- **Zero demo data:** Empty states shown when Firebase is unconfigured, no fake content injected
-- **Ultra HD uploads:** 4 GB client limit, Cloudinary handles 4K/UHD quality preservation
-- **Hover video preview:** GalleryCard plays `edit.videoUrl` muted on hover (desktop only)
-- **Featured glow:** `glow-pulse-featured` CSS animation on featured cards, pulsing border
-- **Ripple buttons:** Click ripple effect on all gallery cards
-- **Audio visualizer:** CSS-animated bars in navbar when audio is playing
-- **Admin enhanced:** Toggle featured status, edit title/description/tags via modal dialog
-- **Energy lines:** Animated CSS gradient lines on hero and CTA sections
+- Sound effects: Web Audio API synthetic tones (no files needed)
+- Ambient music: place file at `/public/audio/tempest-ambient.mp3`
+- Music player degrades silently if file does not exist
 
 ## Sections (UI Identity)
 

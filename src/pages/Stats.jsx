@@ -3,6 +3,8 @@ import { motion } from 'framer-motion'
 import { useEdits, useStats } from '../hooks/useFirebaseData'
 import { isConfigured } from '../lib/firebase'
 import styles from './Stats.module.css'
+import { sounds } from '../lib/sound'
+import { useScrollFade } from '../hooks/useScrollFade'
 
 const formatViews = (n) => {
   if (!n) return '0'
