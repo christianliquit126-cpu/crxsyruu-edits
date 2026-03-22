@@ -173,6 +173,23 @@
 .corner[data-pos="bl"] { bottom: 20px; left: 20px; border-bottom: 1px solid var(--glow-blue); border-left: 1px solid var(--glow-blue); }
 .corner[data-pos="br"] { bottom: 20px; right: 20px; border-bottom: 1px solid var(--glow-blue); border-right: 1px solid var(--glow-blue); }
 
+.cursor {
+  display: inline-block;
+  width: 8px;
+  height: 14px;
+  background: var(--glow-blue);
+  border-radius: 1px;
+  margin-left: 2px;
+  margin-top: 4px;
+  animation: cursor-blink 0.85s step-end infinite;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.7);
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
 @media (max-width: 480px) {
   .corner { width: 14px; height: 14px; }
 }

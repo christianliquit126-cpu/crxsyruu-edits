@@ -62,7 +62,10 @@ export default function Gallery({ globalMute = false, onGlobalMuteChange }) {
 
   const { track, getHeatScore } = useInteractionTracking(isAdmin)
 
-  const categories = useMemo(() => ['All', ...CATEGORIES], [])
+  const categories = useMemo(() => {
+    if (CATEGORIES[0] === 'All') return CATEGORIES
+    return ['All', ...CATEGORIES]
+  }, [])
 
   const filteredEdits = useMemo(() => {
     let result = edits

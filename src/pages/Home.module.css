@@ -666,6 +666,10 @@
   z-index: 1;
 }
 
+@media (max-width: 900px) {
+  .logoOrbit { display: none; }
+}
+
 @media (max-width: 768px) {
   .hero { min-height: calc(100svh - 64px); padding-top: 80px; }
   .statsInner { grid-template-columns: repeat(2, 1fr); }

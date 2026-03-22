@@ -16,8 +16,12 @@ export default function BootIntro({ onComplete }) {
   const [lines, setLines] = useState([])
   const [progress, setProgress] = useState(0)
   const [done, setDone] = useState(false)
+  const mounted = useState(() => ({ ran: false }))[0]
 
   useEffect(() => {
+    if (mounted.ran) return
+    mounted.ran = true
+
     const alreadyBooted = sessionStorage.getItem(BOOT_KEY)
     if (alreadyBooted) { onComplete(); return }
 
@@ -31,20 +35,21 @@ export default function BootIntro({ onComplete }) {
     }
     frame = requestAnimationFrame(animate)
 
+    const timers = []
     BOOT_LINES.forEach(({ text, delay, accent }) => {
-      setTimeout(() => {
+      timers.push(setTimeout(() => {
         setLines(prev => [...prev, { text, accent }])
-      }, delay * 1000)
+      }, delay * 1000))
     })
 
-    const timer = setTimeout(() => {
+    timers.push(setTimeout(() => {
       setDone(true)
       sessionStorage.setItem(BOOT_KEY, '1')
       setTimeout(onComplete, 700)
-    }, 2600)
+    }, 2600))
 
-    return () => { clearTimeout(timer); cancelAnimationFrame(frame) }
-  }, [onComplete])
+    return () => { timers.forEach(clearTimeout); cancelAnimationFrame(frame) }
+  }, [])
 
   return (
     <AnimatePresence>
@@ -95,6 +100,7 @@ export default function BootIntro({ onComplete }) {
                   {line.text}
                 </motion.div>
               ))}
+              <div className={styles.cursor} />
             </div>
 
             <div className={styles.progressWrap}>
