@@ -7,6 +7,7 @@ import Navbar from './components/Navbar'
 import BootIntro from './components/BootIntro'
 import CursorGlow from './components/CursorGlow'
 import ScrollProgress from './components/ScrollProgress'
+import ScrollToTop from './components/ScrollToTop'
 import Home from './pages/Home'
 import Gallery from './pages/Gallery'
 import Upload from './pages/Upload'
@@ -60,6 +61,7 @@ function AppInner({ performanceModeOn, setPerformanceModeOn, globalMute, onGloba
         globalMute={globalMute}
         onGlobalMuteChange={onGlobalMuteChange}
       />
+      <ScrollToTop />
       <main className={styles.main}>
         <Routes>
           <Route path="/" element={<PageTransition><Home globalMute={globalMute} onGlobalMuteChange={onGlobalMuteChange} /></PageTransition>} />

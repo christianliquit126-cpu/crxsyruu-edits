@@ -293,6 +293,12 @@
   z-index: 99;
 }
 
+@media (max-width: 1060px) {
+  .navItem { padding: 8px 10px; font-size: 0.66rem; gap: 5px; }
+  .navSublabel { display: none; }
+  .brandMain { font-size: 0.82rem; }
+}
+
 @media (max-width: 900px) {
   .hamburger { display: flex; }
   .navSublabel { display: none; }
