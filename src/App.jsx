@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
+import { useState, useEffect, lazy, Suspense, Component } from 'react'
+import { BrowserRouter, Routes, Route, useLocation, Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AdminProvider } from './context/AdminContext'
 import ParticleBackground from './components/ParticleBackground'
@@ -8,16 +8,56 @@ import BootIntro from './components/BootIntro'
 import CursorGlow from './components/CursorGlow'
 import ScrollProgress from './components/ScrollProgress'
 import ScrollToTop from './components/ScrollToTop'
-import Home from './pages/Home'
-import Gallery from './pages/Gallery'
-import Upload from './pages/Upload'
-import Stats from './pages/Stats'
-import Admin from './pages/Admin'
 import styles from './App.module.css'
 import { useDevicePerformance } from './hooks/useDevicePerformance'
 import { useSystemIntelligence } from './hooks/useSystemIntelligence'
 import { initSound } from './lib/sound'
 import { session } from './lib/session'
+
+const Home = lazy(() => import('./pages/Home'))
+const Gallery = lazy(() => import('./pages/Gallery'))
+const Upload = lazy(() => import('./pages/Upload'))
+const Stats = lazy(() => import('./pages/Stats'))
+const Admin = lazy(() => import('./pages/Admin'))
+
+function PageLoader() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', opacity: 0.4 }}>
+      <div style={{ width: 20, height: 20, border: '2px solid var(--glow-blue)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+    </div>
+  )
+}
+
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false }
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 16, padding: 32, textAlign: 'center' }}>
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--glow-blue)" strokeWidth="1.5">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Something went wrong in this section.</p>
+          <button
+            onClick={() => this.setState({ hasError: false })}
+            style={{ padding: '8px 20px', background: 'var(--tempest-panel)', border: '1px solid var(--tempest-border)', borderRadius: 8, color: 'var(--glow-blue)', cursor: 'pointer', fontSize: '0.85rem' }}
+          >
+            Try Again
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 function PageTransition({ children }) {
   const location = useLocation()
@@ -63,13 +103,17 @@ function AppInner({ performanceModeOn, setPerformanceModeOn, globalMute, onGloba
       />
       <ScrollToTop />
       <main className={styles.main}>
-        <Routes>
-          <Route path="/" element={<PageTransition><Home globalMute={globalMute} onGlobalMuteChange={onGlobalMuteChange} /></PageTransition>} />
-          <Route path="/gallery" element={<PageTransition><Gallery globalMute={globalMute} onGlobalMuteChange={onGlobalMuteChange} /></PageTransition>} />
-          <Route path="/upload" element={<PageTransition><Upload /></PageTransition>} />
-          <Route path="/stats" element={<PageTransition><Stats /></PageTransition>} />
-          <Route path="/admin" element={<PageTransition><Admin /></PageTransition>} />
-        </Routes>
+        <ErrorBoundary>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<PageTransition><Home globalMute={globalMute} onGlobalMuteChange={onGlobalMuteChange} /></PageTransition>} />
+              <Route path="/gallery" element={<PageTransition><Gallery globalMute={globalMute} onGlobalMuteChange={onGlobalMuteChange} /></PageTransition>} />
+              <Route path="/upload" element={<PageTransition><Upload /></PageTransition>} />
+              <Route path="/stats" element={<PageTransition><Stats /></PageTransition>} />
+              <Route path="/admin" element={<PageTransition><Admin /></PageTransition>} />
+            </Routes>
+          </Suspense>
+        </ErrorBoundary>
       </main>
       <footer className={styles.footer}>
         <div className={styles.footerInner}>
@@ -86,10 +130,10 @@ function AppInner({ performanceModeOn, setPerformanceModeOn, globalMute, onGloba
             <span>Crxsyruu Tempest</span>
           </div>
           <div className={styles.footerLinks}>
-            <span className={styles.footerItem}>Tempest Flow</span>
-            <span className={styles.footerItem}>Tempest Archive</span>
-            <span className={styles.footerItem}>Tempest Upload</span>
-            <span className={styles.footerItem}>Tempest Stats</span>
+            <Link to="/" className={styles.footerItem}>Tempest Flow</Link>
+            <Link to="/gallery" className={styles.footerItem}>Tempest Archive</Link>
+            <Link to="/upload" className={styles.footerItem}>Tempest Upload</Link>
+            <Link to="/stats" className={styles.footerItem}>Tempest Stats</Link>
           </div>
           <p className={styles.footerCopy}>
             Crafted with precision. Inspired by the Great Sage.

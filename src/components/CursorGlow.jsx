@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import styles from './CursorGlow.module.css'
 
 export default function CursorGlow({ disabled = false }) {
@@ -7,7 +7,7 @@ export default function CursorGlow({ disabled = false }) {
   const posRef = useRef({ x: -200, y: -200 })
   const trailPosRef = useRef({ x: -200, y: -200 })
   const frameRef = useRef(null)
-  const [visible, setVisible] = useState(false)
+  const visibleRef = useRef(false)
 
   useEffect(() => {
     if (disabled) return
@@ -16,22 +16,25 @@ export default function CursorGlow({ disabled = false }) {
 
     const onMove = (e) => {
       posRef.current = { x: e.clientX, y: e.clientY }
-      if (!visible) setVisible(true)
+      if (!visibleRef.current) {
+        visibleRef.current = true
+        if (dotRef.current) dotRef.current.style.opacity = '1'
+        if (trailRef.current) trailRef.current.style.opacity = '1'
+      }
     }
 
     const animate = () => {
       const dot = dotRef.current
       const trail = trailRef.current
-      if (!dot || !trail) { frameRef.current = requestAnimationFrame(animate); return }
+      if (dot && trail) {
+        const dx = posRef.current.x - trailPosRef.current.x
+        const dy = posRef.current.y - trailPosRef.current.y
+        trailPosRef.current.x += dx * 0.12
+        trailPosRef.current.y += dy * 0.12
 
-      const dx = posRef.current.x - trailPosRef.current.x
-      const dy = posRef.current.y - trailPosRef.current.y
-      trailPosRef.current.x += dx * 0.12
-      trailPosRef.current.y += dy * 0.12
-
-      dot.style.transform = `translate(${posRef.current.x}px, ${posRef.current.y}px) translate(-50%, -50%)`
-      trail.style.transform = `translate(${trailPosRef.current.x}px, ${trailPosRef.current.y}px) translate(-50%, -50%)`
-
+        dot.style.transform = `translate(${posRef.current.x}px, ${posRef.current.y}px) translate(-50%, -50%)`
+        trail.style.transform = `translate(${trailPosRef.current.x}px, ${trailPosRef.current.y}px) translate(-50%, -50%)`
+      }
       frameRef.current = requestAnimationFrame(animate)
     }
 
@@ -42,14 +45,14 @@ export default function CursorGlow({ disabled = false }) {
       window.removeEventListener('mousemove', onMove)
       if (frameRef.current) cancelAnimationFrame(frameRef.current)
     }
-  }, [disabled, visible])
+  }, [disabled])
 
   if (disabled) return null
 
   return (
     <>
-      <div ref={trailRef} className={styles.trail} style={{ opacity: visible ? 1 : 0 }} />
-      <div ref={dotRef} className={styles.dot} style={{ opacity: visible ? 1 : 0 }} />
+      <div ref={trailRef} className={styles.trail} style={{ opacity: 0 }} />
+      <div ref={dotRef} className={styles.dot} style={{ opacity: 0 }} />
     </>
   )
 }

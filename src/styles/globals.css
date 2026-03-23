@@ -110,6 +110,27 @@ html {
   overflow-y: scroll;
   height: 100%;
   scroll-padding-top: var(--nav-height);
+  scroll-behavior: smooth;
+}
+
+:focus-visible {
+  outline: 2px solid rgba(56, 189, 248, 0.65);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+::selection {
+  background: rgba(56, 189, 248, 0.25);
+  color: var(--text-primary);
+}
+
+::-moz-selection {
+  background: rgba(56, 189, 248, 0.25);
+  color: var(--text-primary);
 }
 
 body {

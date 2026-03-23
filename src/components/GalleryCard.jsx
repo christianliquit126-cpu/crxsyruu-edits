@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import styles from './GalleryCard.module.css'
 import { sounds } from '../lib/sound'
 import { getVideoThumbnailFromUrl } from '../lib/cloudinary'
+import { formatViews, timeAgo } from '../lib/formatters'
 
 const CATEGORY_COLORS = {
   AMV: 'var(--glow-blue)',
@@ -15,23 +16,7 @@ const CATEGORY_COLORS = {
   'Short Film': 'var(--glow-purple)',
 }
 
-const formatViews = (n) => {
-  if (!n) return '0'
-  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`
-  return String(n)
-}
-
-const timeAgo = (ts) => {
-  if (!ts) return ''
-  const diff = Date.now() - ts
-  const m = Math.floor(diff / 60000)
-  if (m < 1) return 'just now'
-  if (m < 60) return `${m}m ago`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `${h}h ago`
-  return `${Math.floor(h / 24)}d ago`
-}
+const isMobileDevice = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
 
 function HighlightText({ text, query }) {
   if (!query || !text) return <>{text}</>
@@ -68,9 +53,11 @@ export default function GalleryCard({
   const [buffering, setBuffering] = useState(false)
   const [videoProgress, setVideoProgress] = useState(0)
   const [imgLoaded, setImgLoaded] = useState(false)
+  const [imgError, setImgError] = useState(false)
   const [showLongPressMenu, setShowLongPressMenu] = useState(false)
   const [doubleTapBurst, setDoubleTapBurst] = useState(false)
   const [inView, setInView] = useState(false)
+  const [shareCopied, setShareCopied] = useState(false)
 
   const cardRef = useRef(null)
   const videoRef = useRef(null)
@@ -84,11 +71,17 @@ export default function GalleryCard({
   const rafRef = useRef(null)
   const pendingMouseRef = useRef(null)
 
-  const isMobile = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
   const catColor = CATEGORY_COLORS[edit.category] || 'var(--glow-blue)'
-
-  // Use provided thumbnail, or derive from Cloudinary video URL — no hidden video elements
   const thumbnail = edit.thumbnail || getVideoThumbnailFromUrl(edit.videoUrl)
+
+  useEffect(() => {
+    if (!showLongPressMenu) return
+    const handler = (e) => {
+      if (e.key === 'Escape') setShowLongPressMenu(false)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [showLongPressMenu])
 
   useEffect(() => {
     const video = videoRef.current
@@ -144,7 +137,7 @@ export default function GalleryCard({
   }, [])
 
   const handleMouseMove = useCallback((e) => {
-    if (isMobile) return
+    if (isMobileDevice) return
     const card = cardRef.current
     if (!card) return
     const rect = card.getBoundingClientRect()
@@ -156,10 +149,10 @@ export default function GalleryCard({
     if (!rafRef.current) {
       rafRef.current = requestAnimationFrame(applyMouseTransform)
     }
-  }, [isMobile, applyMouseTransform])
+  }, [applyMouseTransform])
 
   const handleMouseEnter = useCallback(() => {
-    if (isMobile) return
+    if (isMobileDevice) return
     setHovered(true)
     if (!soundHoverRef.current) {
       soundHoverRef.current = true
@@ -167,7 +160,6 @@ export default function GalleryCard({
     }
     const video = videoRef.current
     if (video && edit.videoUrl && inView) {
-      // Only load if not already loaded
       if (!video.src || video.src === '') {
         video.src = edit.videoUrl
         video.load()
@@ -175,7 +167,7 @@ export default function GalleryCard({
       video.muted = globalMute
       video.play().catch(() => {})
     }
-  }, [isMobile, edit.videoUrl, globalMute, inView])
+  }, [edit.videoUrl, globalMute, inView])
 
   const handleMouseLeave = useCallback(() => {
     const card = cardRef.current
@@ -313,14 +305,16 @@ export default function GalleryCard({
     setShowLongPressMenu(false)
     sounds.tap()
     if (action === 'view') onOpen && onOpen(edit)
-    if (action === 'fullscreen') {
-      onOpen && onOpen(edit)
-    }
+    if (action === 'fullscreen') onOpen && onOpen(edit)
     if (action === 'share') {
       if (navigator.share) {
         navigator.share({ title: edit.title, text: edit.description || '' }).catch(() => {})
       } else {
-        try { navigator.clipboard.writeText(window.location.href) } catch {}
+        try {
+          navigator.clipboard.writeText(window.location.href)
+          setShareCopied(true)
+          setTimeout(() => setShareCopied(false), 2200)
+        } catch {}
       }
     }
   }
@@ -377,6 +371,15 @@ export default function GalleryCard({
         </div>
       )}
 
+      {shareCopied && (
+        <div className={styles.shareToast}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <polyline points="20,6 9,17 4,12"/>
+          </svg>
+          Link copied!
+        </div>
+      )}
+
       <div className={styles.cursorGlow} />
       <div className={styles.edgeLighting} />
       <div className={styles.lightReflection} />
@@ -408,16 +411,26 @@ export default function GalleryCard({
       )}
 
       <div className={styles.thumbWrap}>
-        {!imgLoaded && (
+        {!imgLoaded && !imgError && (
           <div className={styles.blurPlaceholder} />
         )}
-        {thumbnail && (
+        {imgError && (
+          <div className={styles.blurPlaceholder} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(56,189,248,0.3)" strokeWidth="1">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21,15 16,10 5,21"/>
+            </svg>
+          </div>
+        )}
+        {thumbnail && !imgError && (
           <img
             src={thumbnail}
             alt={edit.title}
             className={`${styles.thumb} ${showVideo && edit.videoUrl ? styles.thumbHidden : ''} ${imgLoaded ? styles.thumbLoaded : styles.thumbLoading}`}
             loading="lazy"
             onLoad={() => setImgLoaded(true)}
+            onError={() => { setImgError(true); setImgLoaded(true) }}
           />
         )}
         {edit.videoUrl && (

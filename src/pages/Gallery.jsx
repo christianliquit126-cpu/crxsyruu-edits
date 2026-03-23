@@ -12,6 +12,7 @@ import styles from './Gallery.module.css'
 import { sounds } from '../lib/sound'
 import { session } from '../lib/session'
 import { useScrollFade } from '../hooks/useScrollFade'
+import { getDynamicFeatured } from '../lib/scoring'
 
 const SORT_OPTIONS = [
   { value: 'newest', label: 'Newest' },
@@ -35,15 +36,20 @@ function FadeSection({ children, className }) {
   return <div ref={ref} className={className}>{children}</div>
 }
 
-const getDynamicFeatured = (edits) => {
-  const now = Date.now()
-  const scored = edits.map(e => {
-    const ageDays = (now - (e.uploadedAt || 0)) / 86400000
-    const recency = Math.max(0, 1 - ageDays / 30)
-    const score = (e.views || 0) * (1 + recency * 2)
-    return { ...e, _score: score }
-  })
-  return scored.sort((a, b) => b._score - a._score).slice(0, 3)
+const GALLERY_FILTER_KEY = 'tempest_gallery_filters'
+
+const loadSavedFilters = () => {
+  try {
+    const saved = sessionStorage.getItem(GALLERY_FILTER_KEY)
+    if (saved) return JSON.parse(saved)
+  } catch {}
+  return { category: 'All', sort: 'newest' }
+}
+
+const saveFilters = (category, sort) => {
+  try {
+    sessionStorage.setItem(GALLERY_FILTER_KEY, JSON.stringify({ category, sort }))
+  } catch {}
 }
 
 export default function Gallery({ globalMute = false, onGlobalMuteChange }) {
@@ -51,10 +57,11 @@ export default function Gallery({ globalMute = false, onGlobalMuteChange }) {
   const { isAdmin } = useAdmin()
   const location = useLocation()
   const [selectedEdit, setSelectedEdit] = useState(null)
-  const [activeCategory, setActiveCategory] = useState('All')
+  const savedFilters = useMemo(() => loadSavedFilters(), [])
+  const [activeCategory, setActiveCategory] = useState(savedFilters.category)
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
-  const [sortBy, setSortBy] = useState('newest')
+  const [sortBy, setSortBy] = useState(savedFilters.sort)
   const [focusedId, setFocusedId] = useState(null)
   const searchRef = useRef(null)
   const headerRef = useScrollFade()
@@ -64,9 +71,34 @@ export default function Gallery({ globalMute = false, onGlobalMuteChange }) {
   const { track, getHeatScore } = useInteractionTracking(isAdmin)
 
   useEffect(() => {
+    document.title = 'Tempest Archive — Gallery'
+  }, [])
+
+  useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(searchQuery), 220)
     return () => clearTimeout(t)
   }, [searchQuery])
+
+  useEffect(() => {
+    saveFilters(activeCategory, sortBy)
+  }, [activeCategory, sortBy])
+
+  useEffect(() => {
+    const handler = (e) => {
+      const isMac = navigator.platform.toUpperCase().includes('MAC')
+      const ctrlOrCmd = isMac ? e.metaKey : e.ctrlKey
+      if (ctrlOrCmd && e.key === 'k') {
+        e.preventDefault()
+        searchRef.current?.focus()
+      }
+      if (e.key === 'Escape' && document.activeElement === searchRef.current) {
+        setSearchQuery('')
+        searchRef.current?.blur()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
 
   const categories = useMemo(() => {
     if (CATEGORIES[0] === 'All') return CATEGORIES
@@ -114,8 +146,15 @@ export default function Gallery({ globalMute = false, onGlobalMuteChange }) {
   }, [loading, filteredEdits, location.pathname])
 
   useEffect(() => {
+    let ticking = false
     const handleScroll = () => {
-      session.saveScroll(location.pathname, window.scrollY)
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          session.saveScroll(location.pathname, window.scrollY)
+          ticking = false
+        })
+        ticking = true
+      }
     }
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
@@ -212,7 +251,7 @@ export default function Gallery({ globalMute = false, onGlobalMuteChange }) {
             ref={searchRef}
             type="search"
             className={styles.search}
-            placeholder="Search edits, categories, tags..."
+            placeholder="Search edits, categories, tags... (⌘K)"
             value={searchQuery}
             onChange={handleSearchChange}
             onFocus={() => sounds.hover()}

@@ -1,34 +1,66 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useEdits, deleteEdit, toggleFeatured, updateEdit } from '../hooks/useFirebaseData'
 import { isConfigured } from '../lib/firebase'
+import { CATEGORIES } from '../lib/demoData'
 import styles from './Admin.module.css'
 
 const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'tempest2024'
+const EDIT_CATEGORIES = CATEGORIES.filter(c => c !== 'All')
 
 export default function Admin() {
   const [authed, setAuthed] = useState(false)
   const [pw, setPw] = useState('')
   const [pwError, setPwError] = useState('')
   const [deleting, setDeleting] = useState(null)
+  const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [toggling, setToggling] = useState(null)
   const [editing, setEditing] = useState(null)
   const [editForm, setEditForm] = useState({})
   const [saving, setSaving] = useState(false)
   const { edits, loading } = useEdits()
 
+  useEffect(() => {
+    document.title = 'Admin — Control Panel'
+  }, [])
+
+  useEffect(() => {
+    if (!editing) return
+    const handler = (e) => {
+      if (e.key === 'Escape') setEditing(null)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [editing])
+
+  useEffect(() => {
+    if (!deleteConfirm) return
+    const handler = (e) => {
+      if (e.key === 'Escape') setDeleteConfirm(null)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [deleteConfirm])
+
   const handleLogin = (e) => {
     e.preventDefault()
     if (pw === ADMIN_PASSWORD) {
       setAuthed(true)
       setPwError('')
+      setPw('')
     } else {
       setPwError('Access denied. Invalid credentials.')
     }
   }
 
-  const handleDelete = async (edit) => {
-    if (!window.confirm(`Delete "${edit.title}"? This cannot be undone.`)) return
+  const handleDeleteRequest = (edit) => {
+    setDeleteConfirm(edit)
+  }
+
+  const handleDeleteConfirm = async () => {
+    const edit = deleteConfirm
+    if (!edit) return
+    setDeleteConfirm(null)
     setDeleting(edit.id)
     try {
       await deleteEdit(edit.id)
@@ -55,7 +87,7 @@ export default function Admin() {
     setEditForm({
       title: edit.title || '',
       description: edit.description || '',
-      category: edit.category || '',
+      category: edit.category || EDIT_CATEGORIES[0] || '',
       tags: (edit.tags || []).join(', '),
     })
   }
@@ -193,6 +225,7 @@ export default function Admin() {
                     alt={edit.title}
                     className={styles.editThumb}
                     loading="lazy"
+                    onError={e => { e.currentTarget.style.opacity = '0.3' }}
                   />
                   <div className={styles.editInfo}>
                     <div className={styles.editTopRow}>
@@ -241,6 +274,7 @@ export default function Admin() {
                     <button
                       className={styles.editBtn}
                       onClick={() => openEdit(edit)}
+                      title="Edit metadata"
                     >
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
@@ -250,8 +284,9 @@ export default function Admin() {
                     </button>
                     <button
                       className={styles.deleteBtn}
-                      onClick={() => handleDelete(edit)}
+                      onClick={() => handleDeleteRequest(edit)}
                       disabled={deleting === edit.id}
+                      title="Delete this edit"
                     >
                       {deleting === edit.id ? (
                         <span className={styles.spinnerSm} />
@@ -272,6 +307,58 @@ export default function Admin() {
           </div>
         )}
       </div>
+
+      <AnimatePresence>
+        {deleteConfirm && (
+          <motion.div
+            className={styles.editModalOverlay}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={(e) => { if (e.target === e.currentTarget) setDeleteConfirm(null) }}
+          >
+            <motion.div
+              className={styles.editModal}
+              initial={{ opacity: 0, scale: 0.93, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.93, y: 20 }}
+              style={{ maxWidth: 400 }}
+            >
+              <div className={styles.editModalHeader}>
+                <span className={styles.editModalTitle} style={{ color: 'var(--glow-pink)' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 6 }}>
+                    <polyline points="3,6 5,6 21,6"/>
+                    <path d="M19,6l-1,14a2,2,0,01-2,2H8a2,2,0,01-2-2L5,6"/>
+                  </svg>
+                  Confirm Delete
+                </span>
+                <button className={styles.editModalClose} onClick={() => setDeleteConfirm(null)}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+              <div className={styles.editModalBody}>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.6 }}>
+                  Are you sure you want to permanently delete <strong style={{ color: 'var(--text-primary)' }}>{deleteConfirm.title}</strong>? This action cannot be undone.
+                </p>
+              </div>
+              <div className={styles.editModalActions}>
+                <button className={styles.cancelBtn} onClick={() => setDeleteConfirm(null)}>
+                  Cancel
+                </button>
+                <button
+                  className={styles.deleteBtn}
+                  onClick={handleDeleteConfirm}
+                  style={{ background: 'rgba(244, 114, 182, 0.12)', borderColor: 'rgba(244,114,182,0.3)', color: 'var(--glow-pink)' }}
+                >
+                  Delete Permanently
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {editing && (
@@ -304,7 +391,20 @@ export default function Admin() {
                     value={editForm.title}
                     onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))}
                     placeholder="Edit title..."
+                    autoFocus
                   />
+                </div>
+                <div className={styles.editModalField}>
+                  <label className={styles.editModalLabel}>Category</label>
+                  <select
+                    className={styles.editModalInput}
+                    value={editForm.category}
+                    onChange={e => setEditForm(p => ({ ...p, category: e.target.value }))}
+                  >
+                    {EDIT_CATEGORIES.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className={styles.editModalField}>
                   <label className={styles.editModalLabel}>Description</label>

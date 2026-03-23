@@ -1,14 +1,16 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useEdits, useStats } from '../hooks/useFirebaseData'
 import { isConfigured } from '../lib/firebase'
 import GalleryCard from '../components/GalleryCard'
 import VideoModal from '../components/VideoModal'
+import AnimatedCounter from '../components/AnimatedCounter'
 import styles from './Home.module.css'
 import { useScrollFade } from '../hooks/useScrollFade'
 import { sounds } from '../lib/sound'
 import { session } from '../lib/session'
+import { getDynamicFeatured } from '../lib/scoring'
 
 const SKILLS = [
   { name: 'Color Grading', score: 96, color: 'var(--glow-blue)' },
@@ -62,34 +64,6 @@ function SkillBar({ name, score, color, delay = 0 }) {
   )
 }
 
-const AnimatedCounter = ({ target, duration = 2000 }) => {
-  const [count, setCount] = useState(0)
-  const ref = useRef(null)
-  const started = useRef(false)
-
-  useEffect(() => {
-    if (!target) return
-    const obs = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting && !started.current) {
-        started.current = true
-        const start = Date.now()
-        const tick = () => {
-          const elapsed = Date.now() - start
-          const progress = Math.min(elapsed / duration, 1)
-          const ease = 1 - Math.pow(1 - progress, 3)
-          setCount(Math.floor(ease * target))
-          if (progress < 1) requestAnimationFrame(tick)
-        }
-        requestAnimationFrame(tick)
-      }
-    }, { threshold: 0.5 })
-    if (ref.current) obs.observe(ref.current)
-    return () => obs.disconnect()
-  }, [target, duration])
-
-  return <span ref={ref}>{count.toLocaleString()}</span>
-}
-
 const EnergyLine = ({ style, delay = 0 }) => (
   <div className={styles.energyLine} style={{ ...style, animationDelay: `${delay}s` }} />
 )
@@ -101,17 +75,6 @@ function FadeSection({ children, className, style, delay = 0 }) {
       {children}
     </div>
   )
-}
-
-const getDynamicFeatured = (edits) => {
-  const now = Date.now()
-  const scored = edits.map(e => {
-    const ageDays = (now - (e.uploadedAt || 0)) / 86400000
-    const recency = Math.max(0, 1 - ageDays / 30)
-    const score = (e.views || 0) * (1 + recency * 2)
-    return { ...e, _score: score }
-  })
-  return scored.sort((a, b) => b._score - a._score).slice(0, 3)
 }
 
 const STAT_ITEMS = [
@@ -159,6 +122,10 @@ export default function Home({ globalMute = false, onGlobalMuteChange }) {
   const [restoredEdit, setRestoredEdit] = useState(null)
   const [scanActive, setScanActive] = useState(false)
   const skillRef = useRef(null)
+
+  useEffect(() => {
+    document.title = 'Crxsyruu Tempest — Home'
+  }, [])
 
   const manualFeatured = edits.filter(e => e.featured).slice(0, 3)
   const featured = manualFeatured.length > 0 ? manualFeatured : getDynamicFeatured(edits)
@@ -334,7 +301,7 @@ export default function Home({ globalMute = false, onGlobalMuteChange }) {
             >
               <div className={styles.statIcon}>{stat.icon}</div>
               <span className={styles.statValue}>
-                <AnimatedCounter target={statValues[i]} />
+                <AnimatedCounter target={statValues[i]} duration={2000} />
                 {statSuffixes[i]}
               </span>
               <span className={styles.statLabel}>{stat.label}</span>

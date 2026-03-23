@@ -1,15 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import styles from './ScrollProgress.module.css'
 
 export default function ScrollProgress() {
-  const [progress, setProgress] = useState(0)
+  const fillRef = useRef(null)
+  const glowRef = useRef(null)
 
   useEffect(() => {
     const onScroll = () => {
       const el = document.documentElement
       const scrolled = el.scrollTop || document.body.scrollTop
       const total = el.scrollHeight - el.clientHeight
-      setProgress(total > 0 ? (scrolled / total) * 100 : 0)
+      const progress = total > 0 ? (scrolled / total) * 100 : 0
+      if (fillRef.current) fillRef.current.style.width = `${progress}%`
+      if (glowRef.current) glowRef.current.style.left = `${progress}%`
     }
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
@@ -17,8 +20,8 @@ export default function ScrollProgress() {
 
   return (
     <div className={styles.track}>
-      <div className={styles.fill} style={{ width: `${progress}%` }} />
-      <div className={styles.glow} style={{ left: `${progress}%` }} />
+      <div ref={fillRef} className={styles.fill} style={{ width: '0%' }} />
+      <div ref={glowRef} className={styles.glow} style={{ left: '0%' }} />
     </div>
   )
 }

@@ -1,61 +1,11 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useEdits, useStats } from '../hooks/useFirebaseData'
 import { isConfigured } from '../lib/firebase'
+import AnimatedCounter from '../components/AnimatedCounter'
 import styles from './Stats.module.css'
-import { sounds } from '../lib/sound'
 import { useScrollFade } from '../hooks/useScrollFade'
-
-const formatViews = (n) => {
-  if (!n) return '0'
-  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`
-  return String(n)
-}
-
-const timeFromNow = (ts) => {
-  if (!ts) return ''
-  const diff = Date.now() - ts
-  const m = Math.floor(diff / 60000)
-  if (m < 1) return 'just now'
-  if (m < 60) return `${m}m ago`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `${h}h ago`
-  return `${Math.floor(h / 24)}d ago`
-}
-
-const AnimatedCounter = ({ target, duration = 1800 }) => {
-  const [count, setCount] = useState(0)
-  const ref = useRef(null)
-  const started = useRef(false)
-
-  useEffect(() => {
-    started.current = false
-    setCount(0)
-  }, [target])
-
-  useEffect(() => {
-    if (!target) return
-    const obs = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting && !started.current) {
-        started.current = true
-        const start = Date.now()
-        const tick = () => {
-          const elapsed = Date.now() - start
-          const progress = Math.min(elapsed / duration, 1)
-          const ease = 1 - Math.pow(1 - progress, 3)
-          setCount(Math.floor(ease * target))
-          if (progress < 1) requestAnimationFrame(tick)
-        }
-        requestAnimationFrame(tick)
-      }
-    }, { threshold: 0.3 })
-    if (ref.current) obs.observe(ref.current)
-    return () => obs.disconnect()
-  }, [target, duration])
-
-  return <span ref={ref}>{count.toLocaleString()}</span>
-}
+import { formatViews, timeAgo } from '../lib/formatters'
 
 const GlowBar = ({ value, max, color = 'var(--glow-blue)', delay = 0 }) => {
   const pct = max > 0 ? Math.max((value / max) * 100, 2) : 0
@@ -75,6 +25,10 @@ const GlowBar = ({ value, max, color = 'var(--glow-blue)', delay = 0 }) => {
 export default function Stats() {
   const { edits } = useEdits()
   const stats = useStats()
+
+  useEffect(() => {
+    document.title = 'Tempest Stats — Analytics'
+  }, [])
 
   const sorted = [...edits].sort((a, b) => (b.views || 0) - (a.views || 0))
   const maxViews = sorted[0]?.views || 1
@@ -265,7 +219,7 @@ export default function Stats() {
                     </span>
                   )}
                 </div>
-                <div className={styles.activityList}>
+                <div className={styles.activityList} aria-live="polite">
                   {recentActivity.length > 0 ? (
                     recentActivity.slice(0, 8).map((activity, i) => (
                       <div key={i} className={styles.activityItem}>
@@ -275,7 +229,7 @@ export default function Stats() {
                             {activity.action} <strong>{activity.target}</strong>
                           </span>
                           <span className={styles.activityTime}>
-                            {activity.ts ? timeFromNow(activity.ts) : activity.time}
+                            {activity.ts ? timeAgo(activity.ts) : activity.time}
                           </span>
                         </div>
                       </div>

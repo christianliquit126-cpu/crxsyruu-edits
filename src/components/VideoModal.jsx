@@ -5,26 +5,7 @@ import { incrementView } from '../hooks/useFirebaseData'
 import { sounds } from '../lib/sound'
 import { session } from '../lib/session'
 import { getVideoQualityUrl } from '../lib/cloudinary'
-
-const timeAgo = (ts) => {
-  if (!ts) return ''
-  const d = Math.floor((Date.now() - ts) / 86400000)
-  return d < 1 ? 'Today' : `${d} day${d !== 1 ? 's' : ''} ago`
-}
-
-const formatViews = (n) => {
-  if (!n) return '0'
-  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`
-  return String(n)
-}
-
-const formatTime = (s) => {
-  if (!isFinite(s) || s < 0) return '0:00'
-  const m = Math.floor(s / 60)
-  const sec = Math.floor(s % 60)
-  return `${m}:${sec.toString().padStart(2, '0')}`
-}
+import { formatViews, formatTime, timeAgo } from '../lib/formatters'
 
 const SPEEDS = [0.5, 1, 1.5, 2]
 const QUALITIES = [
@@ -161,17 +142,24 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
     }
   }, [edit])
 
+  const keyHandlerRef = useRef(null)
+  useEffect(() => {
+    keyHandlerRef.current = { onClose, goNext, goPrev, toggleFullscreen, togglePlay, toggleMute }
+  })
+
   useEffect(() => {
     if (!edit) return
     sounds.open()
     const onKey = (e) => {
-      if (e.key === 'Escape') { sounds.close(); onClose() }
-      if (e.key === 'ArrowRight') goNext()
-      if (e.key === 'ArrowLeft') goPrev()
-      if (e.key === 'f' || e.key === 'F') toggleFullscreen()
+      const h = keyHandlerRef.current
+      if (!h) return
+      if (e.key === 'Escape') { sounds.close(); h.onClose() }
+      if (e.key === 'ArrowRight') h.goNext()
+      if (e.key === 'ArrowLeft') h.goPrev()
+      if (e.key === 'f' || e.key === 'F') h.toggleFullscreen()
       if (e.key === 'c' || e.key === 'C') setCinematic(v => !v)
-      if (e.key === ' ') { e.preventDefault(); togglePlay() }
-      if (e.key === 'm' || e.key === 'M') toggleMute()
+      if (e.key === ' ') { e.preventDefault(); h.togglePlay() }
+      if (e.key === 'm' || e.key === 'M') h.toggleMute()
     }
     window.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
@@ -179,11 +167,12 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
       window.removeEventListener('keydown', onKey)
       document.body.style.overflow = ''
     }
-  }, [edit, onClose, goNext, goPrev])
+  }, [edit])
 
   useEffect(() => {
     return () => {
       clearTimeout(controlsTimeout.current)
+      clearTimeout(saveTimer.current)
       if (rafUpdateRef.current) cancelAnimationFrame(rafUpdateRef.current)
     }
   }, [])
