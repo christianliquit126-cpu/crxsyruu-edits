@@ -32,6 +32,7 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
   const hoverTimeRef = useRef(null)
   const currentTimeRef = useRef(0)
   const durationRef = useRef(0)
+  const isDraggingProgressRef = useRef(false)
 
   const [buffering, setBuffering] = useState(false)
   const [fullscreen, setFullscreen] = useState(false)
@@ -296,15 +297,47 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
     }, 5000)
   }, [edit, updateProgressDOM])
 
-  const handleProgressClick = (e) => {
+  const seekToPosition = useCallback((clientX) => {
     const v = videoRef.current
     const track = progressRef.current
     if (!v || !track) return
     const rect = track.getBoundingClientRect()
-    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+    const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
     const d = durationRef.current
     if (d) v.currentTime = pct * d
+  }, [])
+
+  const handleProgressPointerDown = useCallback((e) => {
+    e.preventDefault()
+    isDraggingProgressRef.current = true
+    progressRef.current?.setPointerCapture?.(e.pointerId)
+    seekToPosition(e.clientX)
     sounds.tap()
+  }, [seekToPosition])
+
+  const handleProgressPointerMove = useCallback((e) => {
+    const track = progressRef.current
+    const d = durationRef.current
+    if (isDraggingProgressRef.current) {
+      seekToPosition(e.clientX)
+    }
+    if (!track || !d) return
+    const rect = track.getBoundingClientRect()
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+    const t = pct * d
+    const x = Math.max(40, Math.min(e.clientX - rect.left, rect.width - 40))
+    setPreviewX(x)
+    if (hoverTimeRef.current) hoverTimeRef.current.textContent = formatTime(t)
+    setPreviewVisible(true)
+  }, [seekToPosition])
+
+  const handleProgressPointerUp = useCallback(() => {
+    isDraggingProgressRef.current = false
+  }, [])
+
+  const handleProgressClick = (e) => {
+    if (isDraggingProgressRef.current) return
+    seekToPosition(e.clientX)
   }
 
   const handleProgressHover = useCallback((e) => {
@@ -321,7 +354,7 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
   }, [])
 
   const handleProgressLeave = () => {
-    setPreviewVisible(false)
+    if (!isDraggingProgressRef.current) setPreviewVisible(false)
   }
 
   const handleTouchStart = (e) => {
@@ -446,10 +479,13 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
                       className={styles.progressTrack}
                       ref={progressRef}
                       onClick={handleProgressClick}
-                      onMouseMove={handleProgressHover}
+                      onPointerDown={handleProgressPointerDown}
+                      onPointerMove={handleProgressPointerMove}
+                      onPointerUp={handleProgressPointerUp}
                       onMouseLeave={handleProgressLeave}
                       role="slider"
                       aria-label="Video progress"
+                      style={{ cursor: 'pointer', touchAction: 'none' }}
                     >
                       <div className={styles.progressBuffer} />
                       <div ref={progressFillRef} className={styles.progressFill} style={{ width: '0%' }} />
@@ -529,6 +565,7 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
                             className={`${styles.ctrlBtn} ${styles.speedBtn}`}
                             onClick={(e) => { e.stopPropagation(); setShowSpeedMenu(s => !s); setShowQualityMenu(false) }}
                             aria-label="Playback speed"
+                            aria-expanded={showSpeedMenu}
                           >
                             {speed}x
                           </button>
@@ -552,6 +589,7 @@ export default function VideoModal({ edit, onClose, edits = [], onNavigate, glob
                             className={`${styles.ctrlBtn} ${styles.qualityBtn} ${quality !== 'auto' ? styles.ctrlActive : ''}`}
                             onClick={(e) => { e.stopPropagation(); setShowQualityMenu(q => !q); setShowSpeedMenu(false) }}
                             aria-label="Video quality"
+                            aria-expanded={showQualityMenu}
                           >
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                               <rect x="2" y="4" width="20" height="16" rx="2"/>

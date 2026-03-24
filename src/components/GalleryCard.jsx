@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import styles from './GalleryCard.module.css'
 import { sounds } from '../lib/sound'
 import { getVideoThumbnailFromUrl } from '../lib/cloudinary'
-import { formatViews, timeAgo } from '../lib/formatters'
+import { formatViews, timeAgo, formatDuration } from '../lib/formatters'
 
 const CATEGORY_COLORS = {
   AMV: 'var(--glow-blue)',
@@ -16,19 +16,32 @@ const CATEGORY_COLORS = {
   'Short Film': 'var(--glow-purple)',
 }
 
-const isMobileDevice = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
-
 function HighlightText({ text, query }) {
   if (!query || !text) return <>{text}</>
-  const idx = text.toLowerCase().indexOf(query.toLowerCase())
-  if (idx === -1) return <>{text}</>
-  return (
-    <>
-      {text.slice(0, idx)}
-      <mark className={styles.highlight}>{text.slice(idx, idx + query.length)}</mark>
-      {text.slice(idx + query.length)}
-    </>
-  )
+  const q = query.toLowerCase()
+  const parts = []
+  let remaining = text
+  let cursor = 0
+
+  while (remaining.length > 0) {
+    const idx = remaining.toLowerCase().indexOf(q)
+    if (idx === -1) {
+      parts.push(<span key={cursor}>{remaining}</span>)
+      break
+    }
+    if (idx > 0) {
+      parts.push(<span key={cursor}>{remaining.slice(0, idx)}</span>)
+      cursor++
+    }
+    parts.push(
+      <mark key={cursor} className={styles.highlight}>
+        {remaining.slice(idx, idx + query.length)}
+      </mark>
+    )
+    cursor++
+    remaining = remaining.slice(idx + query.length)
+  }
+  return <>{parts}</>
 }
 
 const LONG_PRESS_MENU_MS = 600
@@ -59,6 +72,10 @@ export default function GalleryCard({
   const [inView, setInView] = useState(false)
   const [shareCopied, setShareCopied] = useState(false)
 
+  const isMobileDevice = useRef(
+    typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
+  ).current
+
   const cardRef = useRef(null)
   const videoRef = useRef(null)
   const holdTimerRef = useRef(null)
@@ -73,6 +90,7 @@ export default function GalleryCard({
 
   const catColor = CATEGORY_COLORS[edit.category] || 'var(--glow-blue)'
   const thumbnail = edit.thumbnail || getVideoThumbnailFromUrl(edit.videoUrl)
+  const duration = formatDuration(edit.duration)
 
   useEffect(() => {
     if (!showLongPressMenu) return
@@ -113,6 +131,12 @@ export default function GalleryCard({
   }, [])
 
   useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+    video.muted = globalMute
+  }, [globalMute])
+
+  useEffect(() => {
     if (focused && cardRef.current) {
       cardRef.current.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
     }
@@ -149,7 +173,7 @@ export default function GalleryCard({
     if (!rafRef.current) {
       rafRef.current = requestAnimationFrame(applyMouseTransform)
     }
-  }, [applyMouseTransform])
+  }, [applyMouseTransform, isMobileDevice])
 
   const handleMouseEnter = useCallback(() => {
     if (isMobileDevice) return
@@ -167,7 +191,7 @@ export default function GalleryCard({
       video.muted = globalMute
       video.play().catch(() => {})
     }
-  }, [edit.videoUrl, globalMute, inView])
+  }, [edit.videoUrl, globalMute, inView, isMobileDevice])
 
   const handleMouseLeave = useCallback(() => {
     const card = cardRef.current
@@ -331,6 +355,10 @@ export default function GalleryCard({
         '--cat-color': catColor,
         '--heat-opacity': heatOpacity,
       }}
+      role="button"
+      tabIndex={0}
+      aria-label={`${edit.title}${edit.category ? ` — ${edit.category}` : ''}`}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen && onOpen(edit) } }}
       onMouseMove={handleMouseMove}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -466,7 +494,10 @@ export default function GalleryCard({
           </div>
         </div>
         <div className={styles.thumbGlow} />
-        {edit.videoUrl && (
+        {duration && (
+          <div className={styles.durationBadge}>{duration}</div>
+        )}
+        {edit.videoUrl && !duration && (
           <div className={styles.videoIndicator}>
             {holdActive ? (
               <span className={styles.playingDot} />

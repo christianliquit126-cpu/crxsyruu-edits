@@ -456,6 +456,25 @@
   padding: 3px 8px;
 }
 
+.durationBadge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  font-family: var(--font-display);
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  color: rgba(255,255,255,0.9);
+  background: rgba(3, 6, 15, 0.88);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: var(--radius-pill);
+  padding: 3px 8px;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+}
+
 .playingDot {
   display: inline-block;
   width: 6px;

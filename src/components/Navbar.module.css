@@ -230,6 +230,12 @@
   box-shadow: 0 0 12px rgba(56,189,248,0.2);
 }
 
+.audioDisabled {
+  opacity: 0.35 !important;
+  cursor: not-allowed !important;
+  pointer-events: none;
+}
+
 .visualizer {
   display: flex;
   align-items: flex-end;

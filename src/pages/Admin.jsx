@@ -3,10 +3,40 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useEdits, deleteEdit, toggleFeatured, updateEdit } from '../hooks/useFirebaseData'
 import { isConfigured } from '../lib/firebase'
 import { CATEGORIES } from '../lib/demoData'
+import { useAdmin } from '../context/AdminContext'
 import styles from './Admin.module.css'
 
 const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'tempest2024'
 const EDIT_CATEGORIES = CATEGORIES.filter(c => c !== 'All')
+
+function Toast({ message, type = 'error', onClose }) {
+  useEffect(() => {
+    const t = setTimeout(onClose, 3500)
+    return () => clearTimeout(t)
+  }, [onClose])
+  return (
+    <motion.div
+      className={`${styles.toast} ${type === 'error' ? styles.toastError : styles.toastSuccess}`}
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+      transition={{ duration: 0.22 }}
+    >
+      {type === 'error' ? (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+      ) : (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <polyline points="20,6 9,17 4,12"/>
+        </svg>
+      )}
+      {message}
+    </motion.div>
+  )
+}
 
 export default function Admin() {
   const [authed, setAuthed] = useState(false)
@@ -18,7 +48,13 @@ export default function Admin() {
   const [editing, setEditing] = useState(null)
   const [editForm, setEditForm] = useState({})
   const [saving, setSaving] = useState(false)
+  const [toast, setToast] = useState(null)
   const { edits, loading } = useEdits()
+  const { logout: contextLogout } = useAdmin()
+
+  const showToast = useCallback((message, type = 'error') => {
+    setToast({ message, type, id: Date.now() })
+  }, [])
 
   useEffect(() => {
     document.title = 'Admin — Control Panel'
@@ -53,6 +89,11 @@ export default function Admin() {
     }
   }
 
+  const handleLogout = () => {
+    setAuthed(false)
+    contextLogout()
+  }
+
   const handleDeleteRequest = (edit) => {
     setDeleteConfirm(edit)
   }
@@ -64,8 +105,9 @@ export default function Admin() {
     setDeleting(edit.id)
     try {
       await deleteEdit(edit.id)
+      showToast(`"${edit.title}" deleted successfully.`, 'success')
     } catch (err) {
-      alert('Delete failed: ' + err.message)
+      showToast(`Delete failed: ${err.message}`)
     } finally {
       setDeleting(null)
     }
@@ -75,8 +117,12 @@ export default function Admin() {
     setToggling(edit.id)
     try {
       await toggleFeatured(edit.id, edit.featured)
+      showToast(
+        edit.featured ? `"${edit.title}" removed from featured.` : `"${edit.title}" marked as featured.`,
+        'success'
+      )
     } catch (err) {
-      alert('Failed to update featured status: ' + err.message)
+      showToast(`Failed to update featured status: ${err.message}`)
     } finally {
       setToggling(null)
     }
@@ -104,8 +150,9 @@ export default function Admin() {
         tags,
       })
       setEditing(null)
+      showToast('Changes saved successfully.', 'success')
     } catch (err) {
-      alert('Save failed: ' + err.message)
+      showToast(`Save failed: ${err.message}`)
     } finally {
       setSaving(false)
     }
@@ -159,6 +206,19 @@ export default function Admin() {
 
   return (
     <div className={styles.page}>
+      <AnimatePresence>
+        {toast && (
+          <div className={styles.toastArea}>
+            <Toast
+              key={toast.id}
+              message={toast.message}
+              type={toast.type}
+              onClose={() => setToast(null)}
+            />
+          </div>
+        )}
+      </AnimatePresence>
+
       <div className={styles.header}>
         <div className={styles.headerContent}>
           <div className={styles.headerTop}>
@@ -170,7 +230,7 @@ export default function Admin() {
               {!isConfigured && (
                 <span className={styles.demoWarning}>Demo mode — changes not persisted</span>
               )}
-              <button className={styles.logoutBtn} onClick={() => setAuthed(false)}>
+              <button className={styles.logoutBtn} onClick={handleLogout}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
                   <polyline points="16,17 21,12 16,7"/>
@@ -190,7 +250,8 @@ export default function Admin() {
             <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
             <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
           </svg>
-          All Edits ({edits.length})
+          All Edits
+          <span className={styles.editCount}>{edits.length}</span>
         </div>
 
         {loading ? (
@@ -261,6 +322,7 @@ export default function Admin() {
                       onClick={() => handleToggleFeatured(edit)}
                       disabled={toggling === edit.id}
                       title={edit.featured ? 'Remove from featured' : 'Mark as featured'}
+                      aria-label={edit.featured ? 'Remove from featured' : 'Mark as featured'}
                     >
                       {toggling === edit.id ? (
                         <span className={styles.spinnerSm} />
@@ -275,6 +337,7 @@ export default function Admin() {
                       className={styles.editBtn}
                       onClick={() => openEdit(edit)}
                       title="Edit metadata"
+                      aria-label="Edit metadata"
                     >
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
@@ -287,6 +350,7 @@ export default function Admin() {
                       onClick={() => handleDeleteRequest(edit)}
                       disabled={deleting === edit.id}
                       title="Delete this edit"
+                      aria-label="Delete this edit"
                     >
                       {deleting === edit.id ? (
                         <span className={styles.spinnerSm} />
@@ -332,7 +396,7 @@ export default function Admin() {
                   </svg>
                   Confirm Delete
                 </span>
-                <button className={styles.editModalClose} onClick={() => setDeleteConfirm(null)}>
+                <button className={styles.editModalClose} onClick={() => setDeleteConfirm(null)} aria-label="Cancel">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                   </svg>
@@ -377,7 +441,7 @@ export default function Admin() {
             >
               <div className={styles.editModalHeader}>
                 <span className={styles.editModalTitle}>Edit Metadata</span>
-                <button className={styles.editModalClose} onClick={() => setEditing(null)}>
+                <button className={styles.editModalClose} onClick={() => setEditing(null)} aria-label="Close">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                   </svg>
@@ -392,7 +456,9 @@ export default function Admin() {
                     onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))}
                     placeholder="Edit title..."
                     autoFocus
+                    maxLength={120}
                   />
+                  <span className={styles.charCount}>{(editForm.title || '').length}/120</span>
                 </div>
                 <div className={styles.editModalField}>
                   <label className={styles.editModalLabel}>Category</label>
@@ -414,7 +480,9 @@ export default function Admin() {
                     onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))}
                     rows={3}
                     placeholder="Description..."
+                    maxLength={500}
                   />
+                  <span className={styles.charCount}>{(editForm.description || '').length}/500</span>
                 </div>
                 <div className={styles.editModalField}>
                   <label className={styles.editModalLabel}>Tags (comma-separated)</label>

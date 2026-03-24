@@ -223,19 +223,26 @@ export default function UploadForm({ onSuccess }) {
 
       <div className={styles.fields}>
         <div className={styles.field}>
-          <label className={styles.label}>Title</label>
+          <div className={styles.labelRow}>
+            <label className={styles.label}>Title</label>
+            <span className={styles.charCount}>{formData.title.length}/120</span>
+          </div>
           <input
             name="title"
             value={formData.title}
             onChange={handleInputChange}
             placeholder="Enter edit title..."
             disabled={isSubmitting}
+            maxLength={120}
             className={styles.input}
           />
         </div>
 
         <div className={styles.field}>
-          <label className={styles.label}>Description</label>
+          <div className={styles.labelRow}>
+            <label className={styles.label}>Description</label>
+            <span className={styles.charCount}>{formData.description.length}/500</span>
+          </div>
           <textarea
             name="description"
             value={formData.description}
@@ -243,6 +250,7 @@ export default function UploadForm({ onSuccess }) {
             placeholder="Describe this edit..."
             rows={3}
             disabled={isSubmitting}
+            maxLength={500}
             className={styles.textarea}
           />
         </div>

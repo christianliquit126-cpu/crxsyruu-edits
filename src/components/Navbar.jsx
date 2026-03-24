@@ -93,6 +93,7 @@ export default function Navbar({ performanceModeOn, setPerformanceModeOn, global
   const [hidden, setHidden] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [audioPlaying, setAudioPlaying] = useState(false)
+  const [audioAvailable, setAudioAvailable] = useState(true)
   const location = useLocation()
   const audioRef = useRef(null)
   const lastScrollY = useRef(0)
@@ -128,12 +129,15 @@ export default function Navbar({ performanceModeOn, setPerformanceModeOn, global
 
   const toggleAudio = () => {
     sounds.toggle()
-    if (!audioRef.current) return
+    if (!audioRef.current || !audioAvailable) return
     if (audioPlaying) {
       audioRef.current.pause()
       setAudioPlaying(false)
     } else {
-      audioRef.current.play().then(() => setAudioPlaying(true)).catch(() => {})
+      audioRef.current.play().then(() => setAudioPlaying(true)).catch(() => {
+        setAudioAvailable(false)
+        setAudioPlaying(false)
+      })
     }
   }
 
@@ -224,10 +228,11 @@ export default function Navbar({ performanceModeOn, setPerformanceModeOn, global
           </MagneticBtn>
 
           <MagneticBtn
-            className={`${styles.audioBtn} ${audioPlaying ? styles.audioBtnActive : ''}`}
+            className={`${styles.audioBtn} ${audioPlaying ? styles.audioBtnActive : ''} ${!audioAvailable ? styles.audioDisabled : ''}`}
             onClick={toggleAudio}
-            aria-label={audioPlaying ? 'Pause music' : 'Play ambient music'}
-            title={audioPlaying ? 'Pause ambient music' : 'Play ambient music'}
+            aria-label={!audioAvailable ? 'Ambient music unavailable' : audioPlaying ? 'Pause music' : 'Play ambient music'}
+            title={!audioAvailable ? 'No ambient audio track found' : audioPlaying ? 'Pause ambient music' : 'Play ambient music'}
+            disabled={!audioAvailable}
           >
             {audioPlaying ? (
               <div className={styles.visualizer}>
@@ -257,7 +262,13 @@ export default function Navbar({ performanceModeOn, setPerformanceModeOn, global
       </div>
       <div className={styles.navLine} />
 
-      <audio ref={audioRef} loop preload="none" src="/audio/tempest-ambient.mp3" />
+      <audio
+        ref={audioRef}
+        loop
+        preload="none"
+        src="/audio/tempest-ambient.mp3"
+        onError={() => { setAudioAvailable(false); setAudioPlaying(false) }}
+      />
 
       {menuOpen && (
         <div className={styles.mobileOverlay} onClick={() => setMenuOpen(false)} />

@@ -674,6 +674,15 @@
   border-radius: var(--radius-pill);
   padding: 5px 14px;
   width: fit-content;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.commissionBadge:hover {
+  background: rgba(45,212,191,0.15);
+  border-color: rgba(45,212,191,0.55);
+  box-shadow: 0 0 16px rgba(45,212,191,0.18);
 }
 
 .commissionDot {

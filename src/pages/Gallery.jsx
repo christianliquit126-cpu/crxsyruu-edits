@@ -17,6 +17,7 @@ import { getDynamicFeatured } from '../lib/scoring'
 const SORT_OPTIONS = [
   { value: 'newest', label: 'Newest' },
   { value: 'views', label: 'Most Viewed' },
+  { value: 'featured', label: 'Featured' },
   { value: 'oldest', label: 'Oldest' },
 ]
 
@@ -105,6 +106,14 @@ export default function Gallery({ globalMute = false, onGlobalMuteChange }) {
     return ['All', ...CATEGORIES]
   }, [])
 
+  const categoryCountMap = useMemo(() => {
+    const map = { All: edits.length }
+    edits.forEach(e => {
+      map[e.category] = (map[e.category] || 0) + 1
+    })
+    return map
+  }, [edits])
+
   const filteredEdits = useMemo(() => {
     let result = edits
     if (activeCategory !== 'All') result = result.filter(e => e.category === activeCategory)
@@ -120,9 +129,16 @@ export default function Gallery({ globalMute = false, onGlobalMuteChange }) {
     switch (sortBy) {
       case 'views': return [...result].sort((a, b) => (b.views || 0) - (a.views || 0))
       case 'oldest': return [...result].sort((a, b) => (a.uploadedAt || 0) - (b.uploadedAt || 0))
+      case 'featured': return [...result].sort((a, b) => {
+        if (a.featured && !b.featured) return -1
+        if (!a.featured && b.featured) return 1
+        return (b.uploadedAt || 0) - (a.uploadedAt || 0)
+      })
       default: return [...result].sort((a, b) => (b.uploadedAt || 0) - (a.uploadedAt || 0))
     }
   }, [edits, activeCategory, debouncedQuery, sortBy])
+
+  const isFiltering = debouncedQuery.trim() !== '' || activeCategory !== 'All'
 
   useEffect(() => {
     if (!loading && filteredEdits.length > 0 && !scrollRestored.current) {
@@ -273,6 +289,11 @@ export default function Gallery({ globalMute = false, onGlobalMuteChange }) {
               className={`${styles.sortBtn} ${sortBy === opt.value ? styles.sortActive : ''}`}
               onClick={() => handleSortChange(opt.value)}
             >
+              {opt.value === 'featured' && (
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: 3 }}>
+                  <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
+                </svg>
+              )}
               {opt.label}
             </button>
           ))}
@@ -289,6 +310,11 @@ export default function Gallery({ globalMute = false, onGlobalMuteChange }) {
               onClick={() => handleCategoryChange(cat)}
             >
               {cat}
+              {categoryCountMap[cat] !== undefined && categoryCountMap[cat] > 0 && (
+                <span className={`${styles.catCount} ${activeCategory === cat ? styles.catCountActive : ''}`}>
+                  {categoryCountMap[cat]}
+                </span>
+              )}
               {activeCategory === cat && (
                 <span className={styles.catActiveDot} style={{ background: CATEGORY_COLORS[cat] || 'var(--glow-blue)' }} />
               )}
@@ -296,6 +322,30 @@ export default function Gallery({ globalMute = false, onGlobalMuteChange }) {
           ))}
         </div>
       </FadeSection>
+
+      <AnimatePresence>
+        {isFiltering && !loading && (
+          <motion.div
+            className={styles.resultChip}
+            initial={{ opacity: 0, y: -8, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.95 }}
+            transition={{ duration: 0.2 }}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            {filteredEdits.length === 0 ? 'No results' : `${filteredEdits.length} result${filteredEdits.length !== 1 ? 's' : ''}`}
+            {debouncedQuery && <span className={styles.resultQuery}>"{debouncedQuery}"</span>}
+            <button className={styles.resultClear} onClick={() => { setSearchQuery(''); setActiveCategory('All'); sounds.tap() }} aria-label="Clear filters">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className={styles.gridArea}>
         {!isConfigured && !loading && edits.length === 0 ? (
@@ -317,7 +367,7 @@ export default function Gallery({ globalMute = false, onGlobalMuteChange }) {
         ) : loading ? (
           <div className={styles.loadingGrid}>
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className={styles.skeleton}>
+              <div key={i} className={styles.skeleton} style={{ animationDelay: `${i * 0.08}s` }}>
                 <div className={styles.skeletonThumb} />
                 <div className={styles.skeletonBody}>
                   <div className={styles.skeletonLine} style={{ width: '40%' }} />

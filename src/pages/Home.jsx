@@ -389,10 +389,19 @@ export default function Home({ globalMute = false, onGlobalMuteChange }) {
               atmospheric video production. Available for commissions.
             </p>
             <div className={styles.aboutMeta}>
-              <div className={styles.commissionBadge}>
+              <a
+                href="mailto:crxsyruu@gmail.com"
+                className={styles.commissionBadge}
+                onClick={() => sounds.tap()}
+                rel="noopener noreferrer"
+              >
                 <span className={styles.commissionDot} />
                 Available for Commissions
-              </div>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginLeft: 4, opacity: 0.6 }}>
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                  <polyline points="12,5 19,12 12,19"/>
+                </svg>
+              </a>
               <div className={styles.softwareList}>
                 {['Premiere Pro', 'After Effects', 'DaVinci Resolve', 'Audacity'].map(skill => (
                   <span key={skill} className={styles.skill}>{skill}</span>

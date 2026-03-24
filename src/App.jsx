@@ -19,6 +19,7 @@ const Gallery = lazy(() => import('./pages/Gallery'))
 const Upload = lazy(() => import('./pages/Upload'))
 const Stats = lazy(() => import('./pages/Stats'))
 const Admin = lazy(() => import('./pages/Admin'))
+const NotFound = lazy(() => import('./pages/NotFound'))
 
 function PageLoader() {
   return (
@@ -80,6 +81,7 @@ function PageTransition({ children }) {
 function AppInner({ performanceModeOn, setPerformanceModeOn, globalMute, onGlobalMuteChange }) {
   const { isLowEnd } = useDevicePerformance()
   const perf = performanceModeOn || isLowEnd
+  const currentYear = new Date().getFullYear()
 
   useSystemIntelligence()
 
@@ -111,6 +113,7 @@ function AppInner({ performanceModeOn, setPerformanceModeOn, globalMute, onGloba
               <Route path="/upload" element={<PageTransition><Upload /></PageTransition>} />
               <Route path="/stats" element={<PageTransition><Stats /></PageTransition>} />
               <Route path="/admin" element={<PageTransition><Admin /></PageTransition>} />
+              <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
             </Routes>
           </Suspense>
         </ErrorBoundary>
@@ -136,7 +139,7 @@ function AppInner({ performanceModeOn, setPerformanceModeOn, globalMute, onGloba
             <Link to="/stats" className={styles.footerItem}>Tempest Stats</Link>
           </div>
           <p className={styles.footerCopy}>
-            Crafted with precision. Inspired by the Great Sage.
+            © {currentYear} Crxsyruu Tempest — Crafted with precision. Inspired by the Great Sage.
           </p>
         </div>
         <div className={styles.footerLine} />

@@ -248,6 +248,23 @@ input:focus, textarea:focus, select:focus {
   line-height: 1.4;
 }
 
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(56,189,248,0.04) 0%,
+    rgba(56,189,248,0.12) 40%,
+    rgba(56,189,248,0.04) 80%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+  border-radius: var(--radius-md);
+}
+
 @keyframes pulse-glow {
   0%, 100% { opacity: 0.6; }
   50% { opacity: 1; }
