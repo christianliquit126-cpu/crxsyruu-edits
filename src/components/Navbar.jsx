@@ -147,17 +147,11 @@ export default function Navbar({ performanceModeOn, setPerformanceModeOn, global
     <nav className={`${styles.nav} ${scrolled ? styles.scrolled : ''} ${hidden && !menuOpen ? styles.hidden : ''}`}>
       <div className={styles.inner}>
         <NavLink to="/" className={styles.brand} onClick={() => sounds.nav()}>
-          <div className={styles.brandIcon}>
-            <svg width="22" height="22" viewBox="0 0 64 64" fill="none">
-              <circle cx="32" cy="32" r="28" stroke="var(--glow-blue)" strokeWidth="1.5" opacity="0.5"/>
-              <polygon points="32,14 42,26 37,26 37,50 27,50 27,26 22,26" fill="var(--glow-blue)" opacity="0.9"/>
-              <circle cx="32" cy="32" r="4" fill="var(--glow-cyan)"/>
-            </svg>
-          </div>
-          <div className={styles.brandText}>
-            <span className={styles.brandMain}>Crxsyruu</span>
-            <span className={styles.brandSub}>Tempest</span>
-          </div>
+          <img
+            src="/crxsyruu-logo.png"
+            alt="Crxsyruu Edits"
+            className={styles.brandLogo}
+          />
         </NavLink>
 
         <div className={`${styles.navLinks} ${menuOpen ? styles.open : ''}`}>

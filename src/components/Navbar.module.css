@@ -63,6 +63,20 @@
 
 .brand:hover .brandIcon { transform: scale(1.08) rotate(-5deg); }
 
+.brandLogo {
+  height: 38px;
+  width: auto;
+  object-fit: contain;
+  display: block;
+  transition: transform var(--transition-spring), filter var(--transition-fast);
+  filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.3));
+}
+
+.brand:hover .brandLogo {
+  transform: scale(1.05);
+  filter: drop-shadow(0 0 14px rgba(56, 189, 248, 0.55));
+}
+
 .brandText {
   display: flex;
   flex-direction: column;
@@ -303,6 +317,7 @@
   .navItem { padding: 8px 10px; font-size: 0.66rem; gap: 5px; }
   .navSublabel { display: none; }
   .brandMain { font-size: 0.82rem; }
+  .brandLogo { height: 34px; }
 }
 
 @media (max-width: 900px) {
@@ -348,4 +363,5 @@
 @media (max-width: 480px) {
   .nav { padding: 0 16px; }
   .brandSub { display: none; }
+  .brandLogo { height: 28px; }
 }
